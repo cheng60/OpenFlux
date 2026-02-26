@@ -1500,7 +1500,7 @@ body {
   }
 }
 
-/* ========== Typing 指示器 - 火焰黑洞效果 ========== */
+/* ========== Typing 指示器 - 三点跳动效果 ========== */
 .typing-container {
   display: flex;
   align-items: center;
@@ -1509,77 +1509,99 @@ body {
   margin-bottom: var(--spacing-sm);
 }
 
-@keyframes blackhole-pulse {
+.typing-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+}
+
+.typing-dots span {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  opacity: 0.4;
+  animation: typing-bounce 1.4s ease-in-out infinite;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
 
   0%,
+  60%,
   100% {
-    transform: scale(1);
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+
+  30% {
+    transform: translateY(-8px);
     opacity: 1;
   }
-
-  50% {
-    transform: scale(0.85);
-    opacity: 0.85;
-  }
 }
 
-@keyframes blackhole-spin {
+/* 意图文本样式（LLM 思考时显示） */
+.typing-intent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  animation: typing-intent-fade-in 0.3s ease-out;
+}
+
+.typing-intent-text {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  max-width: 500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.typing-intent-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.typing-intent-dots span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  opacity: 0.4;
+  animation: typing-bounce 1.4s ease-in-out infinite;
+}
+
+.typing-intent-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-intent-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-intent-fade-in {
   from {
-    filter: hue-rotate(0deg);
+    opacity: 0;
+    transform: translateY(4px);
   }
 
   to {
-    filter: hue-rotate(-360deg);
-  }
-}
-
-@keyframes blackhole-ring {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes whitehole-pulse {
-
-  0%,
-  100% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.15);
-  }
-}
-
-@keyframes whitehole-glow {
-
-  0%,
-  100% {
-    box-shadow:
-      0 0 10px 3px rgba(255, 255, 255, 0.9),
-      0 0 20px 6px rgba(135, 206, 250, 0.6),
-      0 0 30px 10px rgba(100, 149, 237, 0.4);
-  }
-
-  50% {
-    box-shadow:
-      0 0 15px 5px rgba(255, 255, 255, 1),
-      0 0 30px 10px rgba(135, 206, 250, 0.8),
-      0 0 45px 15px rgba(100, 149, 237, 0.5);
-  }
-}
-
-@keyframes whitehole-ring {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(-360deg);
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

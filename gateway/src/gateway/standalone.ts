@@ -7,7 +7,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import crypto from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve as resolvePath } from 'path';
 import { loadConfig } from '../config/loader';
 import { ToolRegistry } from '../tools/registry';
 import type { Tool, ToolResult, ToolParameter } from '../tools/types';
@@ -392,12 +392,16 @@ export async function createStandaloneGateway() {
         ...(config.permissions?.allowedDirectories || []),
     ]);
 
+    // 运行时追踪当前执行中的会话 ID（用于 process.spawn 关联会话）
+    let currentExecutingSessionId: string | undefined;
+
     tools.registerDefaults({
         process: {
             cwd: () => runtimeSettings.outputPath,
             allowedCommands: config.sandbox?.allowedCommands,
             allowedCwdPaths: [...allowedCwdPaths],
             docker: config.sandbox?.mode === 'docker' ? config.sandbox.docker : undefined,
+            getSessionId: () => currentExecutingSessionId,
         },
         opencode: { cwd: () => runtimeSettings.outputPath },
         filesystem: {
@@ -999,6 +1003,9 @@ export async function createStandaloneGateway() {
     ): Promise<string> {
         log.info('执行任务', { input: input.slice(0, 100), sessionId, attachments: attachments?.length || 0 });
 
+        // 设置当前执行会话（用于 process.spawn 关联）
+        currentExecutingSessionId = sessionId;
+
         const result = await agentManager.run(
             input,
             undefined,       // agentId: 不指定，由 Router 自动路由
@@ -1007,6 +1014,8 @@ export async function createStandaloneGateway() {
             attachments,
             userMetadata,
         );
+
+        currentExecutingSessionId = undefined;
 
         log.info('任务完成', {
             agentId: result.agentId,
@@ -1030,6 +1039,9 @@ export async function createStandaloneGateway() {
         const taskName = meta?.taskName || '定时任务';
         const msgId = crypto.randomUUID();
         log.info('定时任务执行', { taskName, prompt: prompt.slice(0, 100), sessionId });
+
+        // 设置当前执行会话（用于 process.spawn 关联）
+        currentExecutingSessionId = sessionId;
 
         // 保存触发消息（以 assistant 身份发送，不模拟用户发消息）
         if (sessionId) {
@@ -1121,6 +1133,7 @@ export async function createStandaloneGateway() {
         });
 
         log.info('定时任务完成', { taskName, iterations: result.iterations, toolCalls: result.toolCalls.length });
+        currentExecutingSessionId = undefined;
         return result.output;
     }
 
@@ -1133,7 +1146,7 @@ export async function createStandaloneGateway() {
         toolCalls: Array<{ name: string; result: unknown }>,
     ): void {
         const savedPaths = new Set<string>();
-        const { resolve: resolvePath } = require('path') as typeof import('path');
+        // resolvePath 已在文件顶部 import
 
         // 常见成果物扩展名
         const artifactExts = new Set([

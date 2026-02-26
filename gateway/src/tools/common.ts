@@ -184,6 +184,13 @@ export function validateAction<T extends string>(
     params: Record<string, unknown>,
     validActions: readonly T[],
 ): T {
+    // 当 LLM 传入空参数对象时，提供更详细的使用提示
+    if (!params || Object.keys(params).length === 0) {
+        throw new Error(
+            `参数不能为空。必须提供 action 参数。可选值: ${validActions.join(', ')}。` +
+            `\n调用示例: {"action": "${validActions[0]}", "path": "文件路径"}`
+        );
+    }
     const action = readStringParam(params, 'action', { required: true, label: 'action' });
     if (!validActions.includes(action as T)) {
         throw new Error(`无效的 action: ${action}，可选值: ${validActions.join(', ')}`);

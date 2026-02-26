@@ -4,6 +4,7 @@
  */
 
 import { exec, spawn } from 'child_process';
+import { kill as processKill } from 'process';
 import { promisify } from 'util';
 import { mkdirSync, existsSync } from 'fs';
 import { isAbsolute, resolve } from 'path';
@@ -24,10 +25,23 @@ import { Logger } from '../../utils/logger';
 const execAsync = promisify(exec);
 const log = new Logger('ProcessTool');
 
+// 已 spawn 的进程记录
+interface SpawnedProcess {
+    pid: number;
+    command: string;
+    args: string[];
+    cwd?: string;
+    sessionId?: string;
+    startTime: number;
+}
+const spawnedProcesses = new Map<number, SpawnedProcess>();
+
 // 支持的动作
 const PROCESS_ACTIONS = [
     'run',       // 运行命令并等待结果
     'spawn',     // 启动后台进程
+    'kill',      // 终止已启动的进程
+    'list',      // 列出已启动的进程
     'shell',     // 在 shell 中执行
 ] as const;
 
@@ -114,6 +128,8 @@ export interface ProcessToolOptions {
     allowedCwdPaths?: string[];
     /** Docker 沙盒配置（设置后命令在容器内执行） */
     docker?: DockerExecutorOptions;
+    /** 获取当前会话 ID（用于关联 spawn 的进程） */
+    getSessionId?: () => string | undefined;
 }
 
 /**
@@ -237,6 +253,10 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
             args: {
                 type: 'array',
                 description: '命令参数数组（spawn 动作使用）',
+            },
+            pid: {
+                type: 'number',
+                description: '进程 PID（kill 动作使用）',
             },
             cwd: {
                 type: 'string',
@@ -385,23 +405,129 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                 case 'spawn': {
                     const cmdArgs = readStringArrayParam(args, 'args') || [];
                     try {
-                        const child = spawn(command, cmdArgs, {
+                        // 如果 LLM 传了完整命令字符串（如 "python app.py"），自动拆分
+                        let spawnCmd = command;
+                        let spawnArgs = cmdArgs;
+                        if (spawnArgs.length === 0 && command.includes(' ')) {
+                            // 处理引号包裹的路径：如 '"C:\path\python.exe" app.py'
+                            const match = command.match(/^"([^"]+)"\s*(.*)?$/);
+                            if (match) {
+                                spawnCmd = match[1];
+                                spawnArgs = match[2] ? match[2].split(/\s+/).filter(Boolean) : [];
+                            } else {
+                                const parts = command.split(/\s+/);
+                                spawnCmd = parts[0];
+                                spawnArgs = parts.slice(1);
+                            }
+                        }
+                        // 去掉可能包裹的引号
+                        spawnCmd = spawnCmd.replace(/^"|"$/g, '');
+
+                        const child = spawn(spawnCmd, spawnArgs, {
                             cwd: workDir,
                             detached: true,
                             stdio: 'ignore',
                             windowsHide: true,
                         });
-                        child.unref();
-                        return jsonResult({
-                            command,
-                            args: cmdArgs,
-                            pid: child.pid,
-                            spawned: true,
+
+                        // 用 Promise 包装 spawn 结果：等待短时间确认进程启动成功或失败
+                        const result = await new Promise<ToolResult>((resolve) => {
+                            let settled = false;
+                            child.on('error', (err: Error) => {
+                                if (!settled) {
+                                    settled = true;
+                                    resolve(errorResult(`启动进程失败: ${err.message}`));
+                                }
+                            });
+                            // 200ms 内没有 error 就认为启动成功
+                            setTimeout(() => {
+                                if (!settled) {
+                                    settled = true;
+                                    child.unref();
+                                    const pid = child.pid!;
+                                    // 记录已 spawn 的进程，关联会话
+                                    spawnedProcesses.set(pid, {
+                                        pid,
+                                        command: spawnCmd,
+                                        args: spawnArgs,
+                                        cwd: workDir,
+                                        sessionId: opts.getSessionId?.(),
+                                        startTime: Date.now(),
+                                    });
+                                    log.info('后台进程已启动', { pid, command: spawnCmd, args: spawnArgs });
+                                    resolve(jsonResult({
+                                        command: spawnCmd,
+                                        args: spawnArgs,
+                                        pid,
+                                        spawned: true,
+                                    }));
+                                }
+                            }, 200);
                         });
+                        return result;
                     } catch (error: any) {
                         return errorResult(`启动进程失败: ${error.message}`);
                     }
                 }
+
+                // 终止已启动的进程
+                case 'kill': {
+                    const pid = readNumberParam(args, 'pid', { integer: true });
+                    if (!pid) {
+                        return errorResult('请提供要终止的进程 PID');
+                    }
+                    const proc = spawnedProcesses.get(pid);
+                    try {
+                        // Windows 用 taskkill 强制终止进程树，其他平台用 SIGTERM
+                        if (process.platform === 'win32') {
+                            await execAsync(`taskkill /PID ${pid} /T /F`, { windowsHide: true }).catch(() => {
+                                // taskkill 失败时尝试 process.kill
+                                processKill(pid);
+                            });
+                        } else {
+                            processKill(pid, 'SIGTERM');
+                        }
+                        spawnedProcesses.delete(pid);
+                        log.info('后台进程已终止', { pid, command: proc?.command });
+                        return jsonResult({
+                            pid,
+                            killed: true,
+                            command: proc?.command || 'unknown',
+                            sessionId: proc?.sessionId,
+                        });
+                    } catch (error: any) {
+                        // 进程可能已经退出
+                        spawnedProcesses.delete(pid);
+                        return errorResult(`终止进程失败 (PID: ${pid}): ${error.message}`);
+                    }
+                }
+
+                // 列出已启动的后台进程
+                case 'list': {
+                    // 检查哪些进程还活着
+                    const alive: SpawnedProcess[] = [];
+                    for (const [pid, proc] of spawnedProcesses) {
+                        try {
+                            processKill(pid, 0); // 信号 0 只检测进程是否存在
+                            alive.push(proc);
+                        } catch {
+                            spawnedProcesses.delete(pid); // 已退出，清理
+                        }
+                    }
+                    return jsonResult({
+                        processes: alive.map(p => ({
+                            pid: p.pid,
+                            command: p.command,
+                            args: p.args,
+                            cwd: p.cwd,
+                            sessionId: p.sessionId,
+                            startTime: new Date(p.startTime).toISOString(),
+                            uptime: Math.round((Date.now() - p.startTime) / 1000) + 's',
+                        })),
+                        count: alive.length,
+                    });
+                }
+
 
                 // 在 shell 中执行
                 case 'shell': {

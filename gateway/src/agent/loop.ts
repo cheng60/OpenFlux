@@ -675,10 +675,23 @@ Agent 的最终回复（前500字）：${cleanContent.slice(0, 500)}
         });
 
         // 通知工具调用开始
-        // 优先使用 LLM 附带的描述文字，否则用工具名生成摘要
+        // 优先 content → 其次 reasoningContent → 最后工具名
+        const reasoningText = response.reasoningContent ? String(response.reasoningContent) : '';
         const toolStartDesc = cleanContent
+            || reasoningText
             || response.toolCalls.map(tc => tc.name).join(', ');
-        config.onToolStart?.(toolStartDesc, response.toolCalls, cleanContent || undefined);
+        config.onToolStart?.(toolStartDesc, response.toolCalls, cleanContent || reasoningText || undefined);
+
+        // 记录 LLM 的意图/思考文本（便于排查空参数等问题）
+        if (cleanContent) {
+            log.info('LLM 意图', { content: cleanContent.slice(0, 500) });
+        } else if (response.reasoningContent) {
+            log.info('LLM 推理', { reasoning: String(response.reasoningContent).slice(0, 500) });
+        } else {
+            log.info('LLM 无意图文本，直接调用工具', {
+                tools: response.toolCalls.map(tc => `${tc.name}(${JSON.stringify(tc.arguments).slice(0, 100)})`),
+            });
+        }
 
         // 执行每个工具调用，结果以 role: 'tool' 回传
         for (const toolCall of response.toolCalls) {

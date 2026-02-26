@@ -1242,12 +1242,19 @@ function addMessage(message: Message): void {
     scrollToBottom();
 }
 
-// 显示加载动画 - 火焰黑洞旋转效果（纯 CSS，零延迟渲染）
+// 显示加载动画 - 三点跳动效果（新迭代时重置为跳动点）
 function showTyping(): void {
-    // 检查是否已存在
     const existingIndicator = document.getElementById('typing-indicator');
     if (existingIndicator) {
-        return; // 已存在，不重复创建
+        // 重置为跳动点（清除之前的意图文本）
+        existingIndicator.innerHTML = `
+            <div class="typing-dots">
+                <span></span><span></span><span></span>
+            </div>`;
+        // 确保位于进度卡片之前（切换会话回来后可能位置错误）
+        ensureTypingPosition(existingIndicator);
+        scrollToBottom();
+        return;
     }
 
     // 创建容器
@@ -1255,12 +1262,60 @@ function showTyping(): void {
     container.className = 'typing-container';
     container.id = 'typing-indicator';
 
-    // 纯 CSS 火焰黑洞 — 浏览器下一帧即可绘制，不依赖 Canvas/rAF
-    const hole = document.createElement('div');
-    hole.className = 'fire-blackhole-typing';
-    container.appendChild(hole);
+    // 三个跳动的点
+    const dots = document.createElement('div');
+    dots.className = 'typing-dots';
+    dots.innerHTML = '<span></span><span></span><span></span>';
+    container.appendChild(dots);
 
-    messagesContainer.appendChild(container);
+    // 如果已存在进度卡片，插入到进度卡片之前；否则放到末尾
+    if (currentProgressCard && currentProgressCard.parentElement === messagesContainer) {
+        messagesContainer.insertBefore(container, currentProgressCard);
+    } else {
+        messagesContainer.appendChild(container);
+    }
+    scrollToBottom();
+}
+
+// 确保 typing 指示器在进度卡片之前
+function ensureTypingPosition(typingEl: HTMLElement): void {
+    if (currentProgressCard && currentProgressCard.parentElement === messagesContainer) {
+        // typing 应在进度卡片之前
+        const typingIdx = Array.from(messagesContainer.children).indexOf(typingEl);
+        const cardIdx = Array.from(messagesContainer.children).indexOf(currentProgressCard);
+        if (typingIdx > cardIdx) {
+            messagesContainer.insertBefore(typingEl, currentProgressCard);
+        }
+    }
+}
+
+// 更新 typing 指示器：显示 LLM 意图/思考文本
+function updateTypingText(text: string): void {
+    // 过滤掉纯工具名（如 "process", "filesystem"），只显示有意义的描述
+    const toolNames = ['process', 'filesystem', 'office', 'spawn', 'web_search', 'web_fetch', 'notify_user'];
+    const trimmed = text.trim();
+    if (!trimmed || toolNames.includes(trimmed) || /^[a-z_,\s]+$/.test(trimmed)) {
+        return; // 不是有意义的文本，保持跳动点
+    }
+
+    let container = document.getElementById('typing-indicator');
+    if (!container) {
+        showTyping();
+        container = document.getElementById('typing-indicator');
+        if (!container) return;
+    }
+
+    // 截取前 120 字符，保持简洁
+    const displayText = trimmed.length > 120 ? trimmed.slice(0, 120) + '...' : trimmed;
+
+    // 替换内容为意图文本 + 跳动点
+    container.innerHTML = `
+        <div class="typing-intent">
+            <span class="typing-intent-text">${escapeHtml(displayText)}</span>
+            <span class="typing-intent-dots"><span></span><span></span><span></span></span>
+        </div>`;
+    // 确保位于进度卡片之前
+    ensureTypingPosition(container);
     scrollToBottom();
 }
 
@@ -3088,14 +3143,13 @@ function handleGatewayProgress(event: GatewayProgressEvent): void {
     const progressEvent = event as ProgressEvent;
 
     if (progressEvent.type === 'thinking' && progressEvent.thinking) {
-        setTypingMode('blackhole');
+        updateTypingText(progressEvent.thinking);
         addProgressToChat('·', progressEvent.thinking, true);
     } else if (progressEvent.type === 'tool_start' && event.description) {
-        // LLM 返回工具调用请求时附带的描述文字 → 更新进度卡片头部标题
-        setTypingMode('blackhole');
+        // LLM 返回工具调用请求时附带的描述文字 → 更新 typing 指示器 + 进度卡片标题
+        updateTypingText(event.description);
         updateProgressCardTitle(event.description);
     } else if (progressEvent.type === 'tool_result' && event.tool) {
-        setTypingMode('blackhole');
         const log = getToolLog(event.tool, event.args);
         const detail = getToolResultSummary(event.tool, event.args, (event as unknown as Record<string, unknown>).result);
         addProgressToChat(log.icon, log.text, false, detail);
@@ -3108,9 +3162,8 @@ function handleGatewayProgress(event: GatewayProgressEvent): void {
             }
         }
     } else if (progressEvent.type === 'iteration') {
-        // iteration 表示新一轮迭代
+        // iteration 表示新一轮迭代 — 恢复跳动点
         showTyping();
-        setTypingMode('blackhole');
     } else if (event.type === 'token' && event.token) {
         hideTyping();
         appendStreamingToken(event.token);
@@ -3135,6 +3188,18 @@ function handleGatewayProgress(event: GatewayProgressEvent): void {
         if (!document.hasFocus()) {
             playTaskCompleteSound();
             invoke('window_flash_frame', { flash: true });
+        }
+        // 重新加载当前会话的成果物（后端可能在任务完成后保存了新 artifacts）
+        const completeSessionId = event.sessionId || currentSessionId;
+        if (completeSessionId && completeSessionId === currentSessionId && gatewayClient) {
+            gatewayClient.getArtifacts(completeSessionId).then(saved => {
+                if (saved.length > 0) {
+                    clearArtifacts();
+                    for (const a of saved) {
+                        addArtifact(a as Artifact, false).catch(() => { });
+                    }
+                }
+            }).catch(err => console.warn('[Artifacts] 加载失败:', err));
         }
     }
 }
@@ -3393,6 +3458,124 @@ async function openFilePreview(filePath: string): Promise<void> {
                     <div class="file-preview-unsupported">
                         <div class="file-preview-unsupported-icon">⚠️</div>
                         <div class="file-preview-unsupported-text">Word 预览失败: ${escapeHtml(e.message || '未知错误')}</div>
+                        <div class="file-preview-unsupported-hint">点击上方按钮用默认应用打开</div>
+                    </div>`;
+            }
+
+        } else if (result.is_binary && (ext === 'pptx' || ext === 'ppt') && result.content) {
+            // PPTX 预览：解压 ZIP 提取幻灯片文本
+            try {
+                const binaryStr = atob(result.content);
+                const data = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) data[i] = binaryStr.charCodeAt(i);
+
+                // 简易 ZIP 解析：PPTX 是 ZIP，slide 在 ppt/slides/slideN.xml
+
+                // 简易 ZIP 解析：找到 slide XML 文件
+                const slides: { index: number; title: string; texts: string[] }[] = [];
+                const zipView = new DataView(data.buffer);
+                let offset = 0;
+
+                while (offset < data.length - 4) {
+                    // 查找 Local File Header (PK\x03\x04)
+                    if (zipView.getUint32(offset, true) !== 0x04034b50) { offset++; continue; }
+
+                    const compressedSize = zipView.getUint32(offset + 18, true);
+
+                    const nameLen = zipView.getUint16(offset + 26, true);
+                    const extraLen = zipView.getUint16(offset + 28, true);
+                    const compressionMethod = zipView.getUint16(offset + 8, true);
+                    const name = new TextDecoder().decode(data.slice(offset + 30, offset + 30 + nameLen));
+                    const dataStart = offset + 30 + nameLen + extraLen;
+
+                    // 只处理 slide XML 文件
+                    const slideMatch = name.match(/ppt\/slides\/slide(\d+)\.xml$/);
+                    if (slideMatch && compressedSize > 0) {
+                        const slideIndex = parseInt(slideMatch[1]);
+                        const compressedData = data.slice(dataStart, dataStart + compressedSize);
+
+                        try {
+                            let xmlStr: string;
+                            if (compressionMethod === 0) {
+                                // 未压缩
+                                xmlStr = new TextDecoder().decode(compressedData);
+                            } else {
+                                // deflate 解压
+                                const ds = new DecompressionStream('deflate-raw');
+                                const writer = ds.writable.getWriter();
+                                writer.write(compressedData);
+                                writer.close();
+                                const reader = ds.readable.getReader();
+                                const chunks: Uint8Array[] = [];
+                                while (true) {
+                                    const { done, value } = await reader.read();
+                                    if (done) break;
+                                    chunks.push(value);
+                                }
+                                const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+                                const merged = new Uint8Array(totalLen);
+                                let pos = 0;
+                                for (const c of chunks) { merged.set(c, pos); pos += c.length; }
+                                xmlStr = new TextDecoder().decode(merged);
+                            }
+
+                            // 从 XML 提取文本（简易 DOM 解析）
+                            const parser = new DOMParser();
+                            const xmlDoc = parser.parseFromString(xmlStr, 'text/xml');
+                            const ns = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+                            const textEls = xmlDoc.getElementsByTagNameNS(ns, 'r');
+                            const allTexts: string[] = [];
+                            for (let i = 0; i < textEls.length; i++) {
+                                const t = textEls[i].getElementsByTagNameNS(ns, 't');
+                                for (let j = 0; j < t.length; j++) {
+                                    const text = t[j].textContent?.trim();
+                                    if (text) allTexts.push(text);
+                                }
+                            }
+
+                            // 第一个文本通常是标题
+                            const title = allTexts.length > 0 ? allTexts[0] : '';
+                            const bodyTexts = allTexts.slice(1);
+
+                            slides.push({ index: slideIndex, title, texts: bodyTexts });
+                        } catch {
+                            slides.push({ index: slideIndex, title: `幻灯片 ${slideIndex}`, texts: ['(解析失败)'] });
+                        }
+                    }
+
+                    offset = dataStart + (compressedSize > 0 ? compressedSize : 1);
+                }
+
+                // 按 slide 序号排序
+                slides.sort((a, b) => a.index - b.index);
+
+                if (slides.length > 0) {
+                    let html = '<div class="pptx-slides">';
+                    for (const slide of slides) {
+                        html += `<div class="pptx-slide">`;
+                        html += `<div class="pptx-slide-number">第 ${slide.index} 页</div>`;
+                        html += `<div class="pptx-slide-title">${escapeHtml(slide.title || `幻灯片 ${slide.index}`)}</div>`;
+                        if (slide.texts.length > 0) {
+                            html += '<div class="pptx-slide-body">';
+                            for (const t of slide.texts) {
+                                html += `<div class="pptx-slide-text">${escapeHtml(t)}</div>`;
+                            }
+                            html += '</div>';
+                        } else if (!slide.title) {
+                            html += '<div class="pptx-slide-empty">(无文字内容)</div>';
+                        }
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                    filePreviewBody.innerHTML = `<div class="file-preview-office-pptx">${html}</div>`;
+                } else {
+                    throw new Error('未找到幻灯片内容');
+                }
+            } catch (e: any) {
+                filePreviewBody.innerHTML = `
+                    <div class="file-preview-unsupported">
+                        <div class="file-preview-unsupported-icon">📊</div>
+                        <div class="file-preview-unsupported-text">PPT 预览失败: ${escapeHtml(e.message || '未知错误')}</div>
                         <div class="file-preview-unsupported-hint">点击上方按钮用默认应用打开</div>
                     </div>`;
             }

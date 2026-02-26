@@ -232,18 +232,25 @@ export class AgentManager {
         let history: Array<{ role: 'user' | 'assistant'; content: string }> = [];
         if (sessionId) {
             const sessionMessages = this.options.sessions.getMessages(sessionId);
-            history = sessionMessages.slice(-20).map(msg => ({
-                role: msg.role as 'user' | 'assistant',
-                content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
-            }));
+            history = sessionMessages.slice(-20)
+                .map(msg => ({
+                    role: msg.role as 'user' | 'assistant',
+                    content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+                }))
+                .filter(msg => msg.content && msg.content.trim().length > 0); // 过滤空消息，防止 LLM API 400
             log.info('加载会话历史', { sessionId, messageCount: history.length });
         }
 
         // 4. 保存用户消息（含附件元数据，以便切换会话后恢复显示）
         if (sessionId) {
+            // 如果用户没有输入文字但上传了附件，用附件文件名作为消息内容
+            let saveContent = input;
+            if (!saveContent?.trim() && attachments?.length) {
+                saveContent = `[上传文件: ${attachments.map(a => a.name).join(', ')}]`;
+            }
             this.options.sessions.addMessage(sessionId, {
                 role: 'user',
-                content: input,
+                content: saveContent || input,
                 attachments: attachments?.length
                     ? attachments.map(a => ({ path: a.path, name: a.name, ext: a.ext, size: a.size }))
                     : undefined,
