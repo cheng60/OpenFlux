@@ -4,7 +4,7 @@
  * 支持路径白名单/黑名单、文件扩展名黑名单、写入大小限制
  */
 
-import { readFile, writeFile, readdir, stat, rm, mkdir, copyFile, rename } from 'fs/promises';
+import { readFile, writeFile, appendFile, readdir, stat, rm, mkdir, copyFile, rename } from 'fs/promises';
 import * as fsSync from 'fs';
 import { dirname, join, basename, isAbsolute, resolve, extname } from 'path';
 import type { AnyTool, ToolResult } from '../types';
@@ -109,7 +109,7 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
         if (!allowSystemPaths) {
             for (const blocked of blockedPaths) {
                 if (path.toLowerCase().startsWith(blocked.toLowerCase())) {
-                    throw new Error(`禁止访问系统路径: ${path}`);
+                    throw new Error(`Access to system path is forbidden: ${path}`);
                 }
             }
         }
@@ -120,7 +120,7 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
                 return path.toLowerCase().startsWith(resolved.toLowerCase());
             });
             if (!allowed) {
-                throw new Error(`路径不在白名单中: ${path}`);
+                throw new Error(`Path is not in the whitelist: ${path}`);
             }
         }
         // 写入白名单（仅写入操作时检查）
@@ -131,7 +131,7 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
             });
             if (!allowed) {
                 const resolvedHints = allowedWritePaths.map(p => resolvePath(p));
-                throw new Error(`写入路径不在允许范围内: ${path}\n允许的目录: ${resolvedHints.join(', ')}`);
+                throw new Error(`Write path is not in the allowed range: ${path}\nAllowed directories: ${resolvedHints.join(', ')}`);
             }
         }
     }
@@ -144,7 +144,7 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
 
         const ext = extname(filePath).toLowerCase().replace('.', '');
         if (ext && blockedExtensions.includes(ext)) {
-            throw new Error(`禁止写入 .${ext} 类型文件: ${filePath}`);
+            throw new Error(`Writing .${ext} file type is forbidden: ${filePath}`);
         }
     }
 
@@ -153,40 +153,45 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
 
     return {
         name: 'filesystem',
-        description: `文件系统操作工具。支持的动作: ${FILESYSTEM_ACTIONS.join(', ')}。watch 动作子操作: start(开始监控)/poll(获取变化)/stop(停止监控)`,
+        description: `File system operation tool. Supported actions: ${FILESYSTEM_ACTIONS.join(', ')}. watch sub-actions: start/poll/stop`,
         parameters: {
             action: {
                 type: 'string',
-                description: `操作类型: ${FILESYSTEM_ACTIONS.join('/')}`,
+                description: `Action type: ${FILESYSTEM_ACTIONS.join('/')}`,
                 required: true,
                 enum: [...FILESYSTEM_ACTIONS],
             },
             path: {
                 type: 'string',
-                description: '目标路径',
+                description: 'Target path',
                 required: true,
             },
             content: {
                 type: 'string',
-                description: '文件内容（write 动作需要）',
+                description: 'File content (required for write action). IMPORTANT: Keep content under 80 lines per call. For larger files, use append=true for subsequent chunks.',
+            },
+            append: {
+                type: 'boolean',
+                description: 'If true, append content to file instead of overwriting. Use this for writing large files in chunks.',
+                default: false,
             },
             destination: {
                 type: 'string',
-                description: '目标路径（copy/move 动作需要）',
+                description: 'Destination path (required for copy/move action)',
             },
             recursive: {
                 type: 'boolean',
-                description: '是否递归操作（delete/list 动作可用）',
+                description: 'Whether to operate recursively (available for delete/list actions)',
                 default: false,
             },
             encoding: {
                 type: 'string',
-                description: '文件编码（默认 utf-8）',
+                description: 'File encoding (default: utf-8)',
                 default: 'utf-8',
             },
             subAction: {
                 type: 'string',
-                description: 'watch 子操作: start/poll/stop',
+                description: 'watch sub-action: start/poll/stop',
             },
         },
 
@@ -212,18 +217,24 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
                 // 写入文件
                 case 'write': {
                     const content = readStringParam(args, 'content', { required: true, label: 'content' });
-                    // 扩展名检查
+                    const appendMode = readBooleanParam(args, 'append', false);
+                    // Extension check
                     checkExtension(path, action);
-                    // 大小检查
+                    // Size check
                     if (content.length > maxWriteSize) {
                         return errorResult(
-                            `文件内容超过大小限制: ${(content.length / 1024 / 1024).toFixed(1)}MB > ${(maxWriteSize / 1024 / 1024).toFixed(1)}MB`
+                            `File content exceeds size limit: ${(content.length / 1024 / 1024).toFixed(1)}MB > ${(maxWriteSize / 1024 / 1024).toFixed(1)}MB`
                         );
                     }
                     return safeExecute(async () => {
                         await mkdir(dirname(path), { recursive: true });
-                        await writeFile(path, content, 'utf-8');
-                        return { path, written: true, size: content.length };
+                        if (appendMode) {
+                            await appendFile(path, content, 'utf-8');
+                            return { path, appended: true, size: content.length };
+                        } else {
+                            await writeFile(path, content, 'utf-8');
+                            return { path, written: true, size: content.length };
+                        }
                     });
                 }
 
@@ -256,7 +267,7 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
                 // 删除文件/目录
                 case 'delete': {
                     if (!allowDelete) {
-                        return errorResult('删除操作已禁用');
+                        return errorResult('Delete operation is disabled');
                     }
                     const recursive = readBooleanParam(args, 'recursive', false);
                     return safeExecute(async () => {
@@ -325,7 +336,7 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
                     switch (sub) {
                         case 'start': {
                             if (activeWatchers.has(path)) {
-                                return jsonResult({ path, message: '已在监控中', eventCount: activeWatchers.get(path)!.events.length });
+                                return jsonResult({ path, message: 'Already watching', eventCount: activeWatchers.get(path)!.events.length });
                             }
 
                             try {
@@ -341,16 +352,16 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
                                 });
 
                                 activeWatchers.set(path, { watcher, events, path });
-                                return jsonResult({ path, watching: true, message: '已开始监控文件变化' });
+                                return jsonResult({ path, watching: true, message: 'Started watching for file changes' });
                             } catch (error: any) {
-                                return errorResult(`启动监控失败: ${error.message}`);
+                                return errorResult(`Failed to start watching: ${error.message}`);
                             }
                         }
 
                         case 'poll': {
                             const state = activeWatchers.get(path);
                             if (!state) {
-                                return errorResult(`未在监控: ${path}，请先使用 start 子操作`);
+                                return errorResult(`Not watching: ${path}, please use the start sub-action first`);
                             }
 
                             // 取出所有事件并清空缓冲
@@ -374,20 +385,20 @@ export function createFileSystemTool(opts: FileSystemToolOptions = {}): AnyTool 
                         case 'stop': {
                             const state = activeWatchers.get(path);
                             if (!state) {
-                                return jsonResult({ path, message: '未在监控' });
+                                return jsonResult({ path, message: 'Not watching' });
                             }
                             state.watcher.close();
                             activeWatchers.delete(path);
-                            return jsonResult({ path, stopped: true, message: '已停止监控' });
+                            return jsonResult({ path, stopped: true, message: 'Stopped watching' });
                         }
 
                         default:
-                            return errorResult(`未知 watch 子操作: ${sub}，支持: start/poll/stop`);
+                            return errorResult(`Unknown watch sub-action: ${sub}, supported: start/poll/stop`);
                     }
                 }
 
                 default:
-                    return errorResult(`未知动作: ${action}`);
+                    return errorResult(`Unknown action: ${action}`);
             }
         },
     };

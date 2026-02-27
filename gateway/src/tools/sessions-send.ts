@@ -27,29 +27,29 @@ export function createSessionsSendTool(options: SessionsSendToolOptions): Tool {
     const parameters: Record<string, ToolParameter> = {
         action: {
             type: 'string',
-            description: '操作类型：send=发送消息 | list=列出协作会话 | status=查询状态 | read=读取消息 | waitAll=等待多个会话完成并汇总结果',
+            description: 'Action type: send=send message | list=list collaborative sessions | status=query status | read=read messages | waitAll=wait for multiple sessions and aggregate results',
             required: true,
             enum: [...ACTIONS],
         },
         targetSession: {
             type: 'string',
-            description: '目标协作会话 ID（send/status/read 时必填）',
+            description: 'Target collaborative session ID (required for send/status/read)',
             required: false,
         },
         message: {
             type: 'string',
-            description: '要发送的消息内容（send 时必填）',
+            description: 'Message content to send (required for send)',
             required: false,
         },
         sessionIds: {
             type: 'array',
-            description: '协作会话 ID 列表（waitAll 时必填）',
+            description: 'Collaborative session ID list (required for waitAll)',
             required: false,
             items: { type: 'string' },
         },
         timeout: {
             type: 'number',
-            description: '等待超时秒数（waitAll 时可选，默认 300）',
+            description: 'Wait timeout in seconds (optional for waitAll, default 300)',
             required: false,
             default: 300,
         },
@@ -58,13 +58,13 @@ export function createSessionsSendTool(options: SessionsSendToolOptions): Tool {
     return {
         name: 'sessions_send',
         description: [
-            'Agent 间通信工具，管理协作会话。',
-            '操作说明：',
-            '- send: 向协作会话发送消息（追加指令、提供补充信息）',
-            '- list: 列出所有协作会话及其状态',
-            '- status: 查询指定协作会话的详细状态和结果',
-            '- read: 读取指定协作会话中的消息记录',
-            '- waitAll: 等待多个协作会话全部完成，返回汇总结果',
+            'Inter-Agent communication tool for managing collaborative sessions.',
+            'Action descriptions:',
+            '- send: Send a message to a collaborative session (append instructions, provide additional info)',
+            '- list: List all collaborative sessions and their statuses',
+            '- status: Query detailed status and results of a specific session',
+            '- read: Read message history from a specific session',
+            '- waitAll: Wait for multiple sessions to complete and return aggregated results',
         ].join('\n'),
         parameters,
 
@@ -84,7 +84,7 @@ export function createSessionsSendTool(options: SessionsSendToolOptions): Tool {
                     case 'waitAll':
                         return await handleWaitAll(collab, args);
                     default:
-                        return errorResult(`未知操作: ${action}。支持: ${ACTIONS.join(', ')}`);
+                        return errorResult(`Unknown action: ${action}. Supported: ${ACTIONS.join(', ')}`);
                 }
             } catch (error) {
                 return errorResult(error instanceof Error ? error.message : String(error));
@@ -120,7 +120,7 @@ function handleList(collab: CollaborationManager): ToolResult {
     const all = collab.listAll();
 
     if (all.length === 0) {
-        return textResult('当前没有协作会话。');
+        return textResult('No collaborative sessions currently.');
     }
 
     const sessions = all.map(s => ({
@@ -130,7 +130,7 @@ function handleList(collab: CollaborationManager): ToolResult {
         status: s.status,
         duration: s.endTime
             ? `${((s.endTime - s.startTime) / 1000).toFixed(1)}s`
-            : `${((Date.now() - s.startTime) / 1000).toFixed(1)}s (运行中)`,
+            : `${((Date.now() - s.startTime) / 1000).toFixed(1)}s (running)`,
         messageCount: s.messages.length,
     }));
 
@@ -149,14 +149,14 @@ function handleStatus(collab: CollaborationManager, args: Record<string, unknown
     const session = collab.getSession(targetSession);
 
     if (!session) {
-        return errorResult(`协作会话不存在: ${targetSession}`);
+        return errorResult(`Collaborative session not found: ${targetSession}`);
     }
 
     const statusText: Record<string, string> = {
-        running: '⏳ 运行中',
-        completed: '✅ 已完成',
-        failed: '❌ 失败',
-        timeout: '⏰ 超时',
+        running: '⏳ Running',
+        completed: '✅ Completed',
+        failed: '❌ Failed',
+        timeout: '⏰ Timeout',
     };
 
     const result: Record<string, unknown> = {
@@ -167,7 +167,7 @@ function handleStatus(collab: CollaborationManager, args: Record<string, unknown
         startTime: new Date(session.startTime).toISOString(),
         duration: session.endTime
             ? `${((session.endTime - session.startTime) / 1000).toFixed(1)}s`
-            : `${((Date.now() - session.startTime) / 1000).toFixed(1)}s (运行中)`,
+            : `${((Date.now() - session.startTime) / 1000).toFixed(1)}s (running)`,
         messageCount: session.messages.length,
         unreadCount: session.messages.filter(m => !m.read).length,
     };
@@ -192,7 +192,7 @@ function handleRead(collab: CollaborationManager, args: Record<string, unknown>)
     if (messages.length === 0) {
         const session = collab.getSession(targetSession);
         if (!session) {
-            return errorResult(`协作会话不存在: ${targetSession}`);
+            return errorResult(`Collaborative session not found: ${targetSession}`);
         }
 
         // 没有消息但会话已完成，返回结果
@@ -206,7 +206,7 @@ function handleRead(collab: CollaborationManager, args: Record<string, unknown>)
             });
         }
 
-        return textResult(`协作会话 ${targetSession} 暂无消息，Agent "${session.agentId}" 正在执行中...`);
+        return textResult(`Collaborative session ${targetSession} has no messages yet, Agent "${session.agentId}" is executing...`);
     }
 
     return jsonResult({
@@ -227,13 +227,13 @@ function handleRead(collab: CollaborationManager, args: Record<string, unknown>)
 async function handleWaitAll(collab: CollaborationManager, args: Record<string, unknown>): Promise<ToolResult> {
     const sessionIdsRaw = args.sessionIds;
     if (!sessionIdsRaw || !Array.isArray(sessionIdsRaw) || sessionIdsRaw.length === 0) {
-        return errorResult('waitAll 需要 sessionIds 参数（协作会话 ID 数组）');
+        return errorResult('waitAll requires sessionIds parameter (collaborative session ID array)');
     }
 
     const sessionIds = sessionIdsRaw.map(String);
     const timeout = readNumberParam(args, 'timeout') || 300;
 
-    log.info(`waitAll: ${sessionIds.length} 个会话, timeout=${timeout}s`);
+    log.info(`waitAll: ${sessionIds.length} sessions, timeout=${timeout}s`);
 
     const result = await collab.waitAll(sessionIds, timeout);
 

@@ -239,7 +239,7 @@ async function runBraveSearch(params: {
 
         if (!res.ok) {
             const detail = await res.text().catch(() => '');
-            throw new Error(`Brave Search API 错误 (${res.status}): ${detail || res.statusText}`);
+            throw new Error(`Brave Search API error (${res.status}): ${detail || res.statusText}`);
         }
 
         const data = (await res.json()) as BraveSearchResponse;
@@ -292,11 +292,11 @@ async function runPerplexitySearch(params: {
 
         if (!res.ok) {
             const detail = await res.text().catch(() => '');
-            throw new Error(`Perplexity API 错误 (${res.status}): ${detail || res.statusText}`);
+            throw new Error(`Perplexity API error (${res.status}): ${detail || res.statusText}`);
         }
 
         const data = (await res.json()) as PerplexitySearchResponse;
-        const content = data.choices?.[0]?.message?.content ?? '无响应';
+        const content = data.choices?.[0]?.message?.content ?? 'No response';
         const citations = data.citations ?? [];
 
         return {
@@ -327,12 +327,12 @@ export function createWebSearchTool(options?: WebSearchToolOptions): Tool {
         : Boolean(resolveBraveApiKey(options));
 
     if (!apiKeyAvailable) {
-        log.warn(`web_search 工具不可用：未配置 ${provider === 'perplexity' ? 'Perplexity' : 'Brave Search'} API Key`);
+        log.warn(`web_search tool unavailable: ${provider === 'perplexity' ? 'Perplexity' : 'Brave Search'} API Key not configured`);
     }
 
     const description = provider === 'perplexity'
-        ? '使用 Perplexity Sonar 搜索互联网。返回 AI 综合答案和引用来源。参数: query(必填), count(可选,1-10)'
-        : '使用 Brave Search API 搜索互联网。返回标题、URL 和摘要。参数: query(必填), count(可选,1-10), country(可选,2位国家码如CN/US), search_lang(可选,语言码如zh/en), freshness(可选,pd/pw/pm/py 或日期范围)';
+        ? 'Search the internet using Perplexity Sonar. Returns AI-synthesized answers with citations. Params: query (required), count (optional, 1-10)'
+        : 'Search the internet using Brave Search API. Returns titles, URLs, and descriptions. Params: query (required), count (optional, 1-10), country (optional, 2-letter code e.g., CN/US), search_lang (optional, language code e.g., zh/en), freshness (optional, pd/pw/pm/py or date range)';
 
     return {
         name: 'web_search',
@@ -341,28 +341,28 @@ export function createWebSearchTool(options?: WebSearchToolOptions): Tool {
         parameters: {
             query: {
                 type: 'string',
-                description: '搜索查询字符串',
+                description: 'Search query string',
                 required: true,
             },
             count: {
                 type: 'number',
-                description: '返回结果数量 (1-10)，默认 5',
+                description: 'Number of results to return (1-10), default 5',
             },
             country: {
                 type: 'string',
-                description: '2位国家码，如 CN、US、DE，用于获取特定地区的搜索结果',
+                description: '2-letter country code, e.g., CN, US, DE, for region-specific search results',
             },
             search_lang: {
                 type: 'string',
-                description: 'ISO 语言码，如 zh、en、de，用于搜索结果语言',
+                description: 'ISO language code, e.g., zh, en, de, for search result language',
             },
             ui_lang: {
                 type: 'string',
-                description: 'ISO 语言码，用于 UI 元素语言',
+                description: 'ISO language code for UI element language',
             },
             freshness: {
                 type: 'string',
-                description: '时间过滤（仅 Brave）: pd(过去24小时), pw(过去一周), pm(过去一月), py(过去一年), 或日期范围 YYYY-MM-DDtoYYYY-MM-DD',
+                description: 'Time filter (Brave only): pd (past 24h), pw (past week), pm (past month), py (past year), or date range YYYY-MM-DDtoYYYY-MM-DD',
             },
         },
         execute: async (args: Record<string, unknown>): Promise<ToolResult> => {
@@ -381,7 +381,7 @@ export function createWebSearchTool(options?: WebSearchToolOptions): Tool {
                 if (rawFreshness && provider !== 'brave') {
                     return jsonResult({
                         error: 'unsupported_freshness',
-                        message: 'freshness 参数仅 Brave Search 支持',
+                        message: 'freshness parameter is only supported by Brave Search',
                     });
                 }
 
@@ -389,7 +389,7 @@ export function createWebSearchTool(options?: WebSearchToolOptions): Tool {
                 if (rawFreshness && !freshness) {
                     return jsonResult({
                         error: 'invalid_freshness',
-                        message: 'freshness 格式错误，可选: pd, pw, pm, py, 或日期范围 YYYY-MM-DDtoYYYY-MM-DD',
+                        message: 'Invalid freshness format, options: pd, pw, pm, py, or date range YYYY-MM-DDtoYYYY-MM-DD',
                     });
                 }
 
@@ -397,7 +397,7 @@ export function createWebSearchTool(options?: WebSearchToolOptions): Tool {
                 const cacheKey = `${provider}:${query}:${count}:${country || '-'}:${searchLang || '-'}:${freshness || '-'}`;
                 const cached = readCache(cacheKey);
                 if (cached) {
-                    log.info('搜索命中缓存', { query, provider });
+                    log.info('Search cache hit', { query, provider });
                     return jsonResult({ ...cached, cached: true });
                 }
 
@@ -409,7 +409,7 @@ export function createWebSearchTool(options?: WebSearchToolOptions): Tool {
                     if (!apiKey) {
                         return jsonResult({
                             error: 'missing_api_key',
-                            message: 'Perplexity 搜索需要 API Key。请设置环境变量 PERPLEXITY_API_KEY 或 OPENROUTER_API_KEY，或在 openflux.yaml 中配置 web.search.perplexity.apiKey',
+                            message: 'Perplexity search requires an API Key. Set environment variable PERPLEXITY_API_KEY or OPENROUTER_API_KEY, or configure web.search.perplexity.apiKey in openflux.yaml',
                         });
                     }
 
@@ -425,7 +425,7 @@ export function createWebSearchTool(options?: WebSearchToolOptions): Tool {
                     if (!apiKey) {
                         return jsonResult({
                             error: 'missing_api_key',
-                            message: 'Brave Search 需要 API Key。请设置环境变量 BRAVE_API_KEY，或在 openflux.yaml 中配置 web.search.apiKey',
+                            message: 'Brave Search requires an API Key. Set environment variable BRAVE_API_KEY, or configure web.search.apiKey in openflux.yaml',
                         });
                     }
 
@@ -443,20 +443,20 @@ export function createWebSearchTool(options?: WebSearchToolOptions): Tool {
 
                 result.tookMs = Date.now() - start;
                 writeCache(cacheKey, result, cacheTtlMs);
-                log.info('搜索完成', { query, provider, tookMs: result.tookMs });
+                log.info('Search completed', { query, provider, tookMs: result.tookMs });
 
                 return jsonResult(result);
             } catch (err: any) {
-                log.error('搜索失败', { error: err.message });
+                log.error('Search failed', { error: err.message });
                 // 返回结构化错误 + 降级建议，帮助 LLM 快速切换策略
                 return jsonResult({
                     error: true,
-                    message: `搜索失败: ${err.message}`,
-                    fallbackSuggestion: '搜索 API 不可用，请勿重复调用 web_search。请改用 web_fetch 直接获取目标网站内容，或使用 browser 工具访问网页。',
+                    message: `Search failed: ${err.message}`,
+                    fallbackSuggestion: 'Search API is unavailable, do not repeatedly call web_search. Use web_fetch to directly access target website content, or use the browser tool to browse web pages.',
                     suggestedActions: [
-                        '使用 web_fetch 直接访问相关网站（如新闻站首页）',
-                        '使用 browser 导航到目标网站',
-                        '如果已有足够信息，直接回答用户',
+                        'Use web_fetch to directly access relevant websites (e.g., news site homepage)',
+                        'Use browser to navigate to the target website',
+                        'If you already have enough information, answer the user directly',
                     ],
                 });
             }

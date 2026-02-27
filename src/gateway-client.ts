@@ -74,7 +74,7 @@ export class GatewayClient {
                 this.ws = new WebSocket(this.url);
 
                 this.ws.onopen = () => {
-                    console.log('[GatewayClient] 已连接');
+                    console.log('[GatewayClient] Connected');
                     this.reconnectAttempts = 0;
                 };
 
@@ -83,7 +83,7 @@ export class GatewayClient {
                 };
 
                 this.ws.onclose = () => {
-                    console.log('[GatewayClient] 连接已关闭');
+                    console.log('[GatewayClient] Connection closed');
                     this.authenticated = false;
                     this.notifyConnectionChange('disconnected');
                     if (this.shouldReconnect) {
@@ -92,7 +92,7 @@ export class GatewayClient {
                 };
 
                 this.ws.onerror = (error) => {
-                    console.error('[GatewayClient] 连接错误:', error);
+                    console.error('[GatewayClient] Connection error:', error);
                     if (this.reconnectAttempts === 0) {
                         // 首次连接失败才 reject
                         reject(new Error('WebSocket 连接失败'));
@@ -155,14 +155,14 @@ export class GatewayClient {
      */
     private tryReconnect(): void {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error('[GatewayClient] 重连次数已达上限');
+            console.error('[GatewayClient] Max reconnect attempts reached');
             this.notifyConnectionChange('failed');
             return;
         }
 
         this.reconnectAttempts++;
         const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
-        console.log(`[GatewayClient] ${delay}ms 后尝试重连 (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        console.log(`[GatewayClient] Reconnecting in ${delay}ms (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
         this.notifyConnectionChange('reconnecting');
 
@@ -226,7 +226,7 @@ export class GatewayClient {
     private handleMessage(data: string): void {
         try {
             const message: GatewayMessage = JSON.parse(data);
-            console.log('[GatewayClient] 收到消息:', message.type, message.id, message);
+            console.log('[GatewayClient] Message received:', message.type, message.id, message);
 
             // 通知所有消息处理器
             this.messageHandlers.forEach(handler => handler(message));
@@ -260,7 +260,7 @@ export class GatewayClient {
                 message.type === 'chat.start' || message.type === 'chat.progress';
 
             if (message.id && this.pendingRequests.has(message.id) && !isIntermediateMessage) {
-                console.log('[GatewayClient] 匹配到 pending 请求 (final):', message.id, message.type);
+                console.log('[GatewayClient] Matched pending request (final):', message.id, message.type);
                 const { resolve, reject } = this.pendingRequests.get(message.id)!;
                 this.pendingRequests.delete(message.id);
 
@@ -272,7 +272,7 @@ export class GatewayClient {
                 }
             }
         } catch (error) {
-            console.error('[GatewayClient] 解析消息失败:', error);
+            console.error('[GatewayClient] Failed to parse message:', error);
         }
     }
 
@@ -298,7 +298,7 @@ export class GatewayClient {
      */
     private async handleClientMcpCall(message: GatewayMessage): Promise<void> {
         const { tool, args } = message.payload as { tool: string; args: Record<string, unknown> };
-        console.log('[GatewayClient] 收到客户端 MCP 工具调用:', tool);
+        console.log('[GatewayClient] Client MCP tool invocation received:', tool);
 
         try {
             const response = await this.request<{ success: boolean; result?: unknown; error?: string }>('mcp.tool.call', { tool, args });
@@ -323,10 +323,10 @@ export class GatewayClient {
      */
     registerClientMcpTools(tools: Array<{ name: string; description: string; parameters: Record<string, unknown> }>): void {
         if (!this.isConnected()) {
-            console.warn('[GatewayClient] 未连接，无法注册客户端 MCP 工具');
+            console.warn('[GatewayClient] Not connected, cannot register client MCP tools');
             return;
         }
-        console.log(`[GatewayClient] 注册客户端 MCP 工具: ${tools.length} 个`);
+        console.log(`[GatewayClient] Registering client MCP tools: ${tools.length}`);
         this.send({
             type: 'mcp.client.register',
             payload: { tools },
@@ -338,7 +338,7 @@ export class GatewayClient {
      */
     unregisterClientMcpTools(): void {
         if (!this.isConnected()) return;
-        console.log('[GatewayClient] 移除客户端 MCP 工具');
+        console.log('[GatewayClient] Removing client MCP tools');
         this.send({
             type: 'mcp.client.unregister',
         });
@@ -403,7 +403,7 @@ export class GatewayClient {
             payload.chatroomId = options.chatroomId;
         }
         const result = await this.request<{ output?: string }>('chat', payload, 0);
-        console.log('[GatewayClient] chat 响应:', result);
+        console.log('[GatewayClient] Chat response:', result);
         return result?.output || '';
     }
 
@@ -411,9 +411,9 @@ export class GatewayClient {
      * 获取会话列表
      */
     async getSessions(): Promise<Session[]> {
-        console.log('[GatewayClient] getSessions 请求');
+        console.log('[GatewayClient] getSessions request');
         const result = await this.request<{ sessions: Session[] }>('sessions.list');
-        console.log('[GatewayClient] getSessions 响应:', result);
+        console.log('[GatewayClient] getSessions response:', result);
         return result.sessions;
     }
 
@@ -421,9 +421,9 @@ export class GatewayClient {
      * 获取会话消息
      */
     async getMessages(sessionId: string): Promise<unknown[]> {
-        console.log('[GatewayClient] getMessages 请求:', sessionId);
+        console.log('[GatewayClient] getMessages request:', sessionId);
         const result = await this.request<{ messages: unknown[] }>('sessions.messages', { sessionId });
-        console.log('[GatewayClient] getMessages 响应:', result);
+        console.log('[GatewayClient] getMessages response:', result);
         return result.messages;
     }
 

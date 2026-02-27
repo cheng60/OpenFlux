@@ -199,7 +199,7 @@ export function resolveToolsForAgent(
                 };
             }
             tools = filterToolsByPolicy(tools, mergedPolicy);
-            log.debug(`Profile "${agentTools.profile}" 过滤: ${allTools.length} → ${tools.length}`);
+            log.debug(`Profile "${agentTools.profile}" filtering: ${allTools.length} → ${tools.length}`);
         }
     }
 
@@ -210,7 +210,7 @@ export function resolveToolsForAgent(
         if (agentTools.deny) agentPolicy.deny = agentTools.deny;
         const beforeCount = tools.length;
         tools = filterToolsByPolicy(tools, agentPolicy);
-        log.debug(`Agent allow/deny 过滤: ${beforeCount} → ${tools.length}`);
+        log.debug(`Agent allow/deny filtering: ${beforeCount} → ${tools.length}`);
     }
 
     // Layer 3: SubAgent 默认限制
@@ -218,7 +218,7 @@ export function resolveToolsForAgent(
         const denyList = subAgentConfig?.deny || DEFAULT_SUBAGENT_TOOL_DENY;
         const beforeCount = tools.length;
         tools = filterToolsByPolicy(tools, { deny: denyList });
-        log.debug(`SubAgent deny 过滤: ${beforeCount} → ${tools.length}`);
+        log.debug(`SubAgent deny filtering: ${beforeCount} → ${tools.length}`);
     }
 
     return tools;

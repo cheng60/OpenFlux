@@ -28,30 +28,30 @@ export function createSessionsSpawnTool(options: SessionsSpawnToolOptions): Tool
     const parameters: Record<string, ToolParameter> = {
         agentId: {
             type: 'string',
-            description: '目标 Agent ID（单任务模式必填，batch 模式不填）',
+            description: 'Target Agent ID (required for single task mode, not needed for batch mode)',
             required: false,
         },
         task: {
             type: 'string',
-            description: '任务描述（单任务模式必填，batch 模式不填）',
+            description: 'Task description (required for single task mode, not needed for batch mode)',
             required: false,
         },
         timeout: {
             type: 'number',
-            description: `超时秒数（默认 ${defaultTimeout}）`,
+            description: `Timeout in seconds (default ${defaultTimeout})`,
             required: false,
             default: defaultTimeout,
         },
         waitForResult: {
             type: 'boolean',
-            description: '是否同步等待结果（默认 false）',
+            description: 'Whether to wait synchronously for results (default false)',
             required: false,
             default: false,
         },
         // 批量模式参数
         batch: {
             type: 'array',
-            description: '批量任务列表（使用此参数时忽略 agentId/task）。每个元素: {"agentId": "...", "task": "...", "label": "可选标签"}',
+            description: 'Batch task list (ignores agentId/task when used). Each element: {"agentId": "...", "task": "...", "label": "optional label"}',
             required: false,
             items: { type: 'object' },
         },
@@ -60,17 +60,17 @@ export function createSessionsSpawnTool(options: SessionsSpawnToolOptions): Tool
     return {
         name: 'sessions_spawn',
         description: [
-            '创建协作会话，将任务分派给指定 Agent 执行。支持两种模式：',
+            'Create collaborative sessions to dispatch tasks to specified Agents. Supports two modes:',
             '',
-            '【单任务模式】指定 agentId + task，分派一个任务',
-            '【批量模式】使用 batch 参数，同时分派多个任务给不同 Agent 并行执行',
+            '[Single task mode] Specify agentId + task, dispatch one task',
+            '[Batch mode] Use batch parameter to dispatch multiple tasks to different Agents in parallel',
             '',
-            'waitForResult=true 时同步等待完成；false（默认）时异步返回会话 ID 后用 sessions_send 查询',
+            'waitForResult=true: wait synchronously; false (default): async, returns session ID, use sessions_send to query',
             '',
-            '批量示例：',
+            'Batch example:',
             'batch: [',
-            '  {"agentId": "coder", "task": "写一个工具函数", "label": "编码任务"},',
-            '  {"agentId": "automation", "task": "搜索相关资料", "label": "搜索任务"}',
+            '  {"agentId": "coder", "task": "write a utility function", "label": "coding task"},',
+            '  {"agentId": "automation", "task": "search for relevant materials", "label": "search task"}',
             ']',
         ].join('\n'),
         parameters,
@@ -104,7 +104,7 @@ export function createSessionsSpawnTool(options: SessionsSpawnToolOptions): Tool
                         status: 'spawned',
                         sessionId: result.sessionId,
                         agentId,
-                        message: `协作会话已创建，Agent "${agentId}" 正在后台执行。使用 sessions_send(action="status", targetSession="${result.sessionId}") 查询进度。`,
+                        message: `Collaborative session created, Agent "${agentId}" is executing in background. Use sessions_send(action="status", targetSession="${result.sessionId}") to check progress.`,
                     });
                 }
 
@@ -136,7 +136,7 @@ async function handleBatch(
     const tasks: CollabBatchTask[] = [];
     for (const item of batch) {
         if (!item.agentId || !item.task) {
-            return errorResult(`batch 中每个任务必须包含 agentId 和 task。收到: ${JSON.stringify(item)}`);
+            return errorResult(`Each task in batch must include agentId and task. Received: ${JSON.stringify(item)}`);
         }
         tasks.push({
             agentId: String(item.agentId),
@@ -145,7 +145,7 @@ async function handleBatch(
         });
     }
 
-    log.info(`sessions_spawn batch: ${tasks.length} 个任务, wait=${waitForAll}`);
+    log.info(`sessions_spawn batch: ${tasks.length} tasks, wait=${waitForAll}`);
 
     const result = await collab.spawnBatch({
         tasks,
@@ -164,7 +164,7 @@ async function handleBatch(
                 label: t.label,
                 sessionId: result.sessionIds[i],
             })),
-            message: `${result.sessionIds.length} 个协作会话已创建并行执行中。使用 sessions_send(action="waitAll", sessionIds=["..."]) 等待全部完成。`,
+            message: `${result.sessionIds.length} collaborative sessions created and running in parallel. Use sessions_send(action="waitAll", sessionIds=["..."]) to wait for all to complete.`,
         });
     }
 

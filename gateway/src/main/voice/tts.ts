@@ -48,7 +48,7 @@ export class TTSService {
      */
     async initialize(): Promise<void> {
         if (!this.config.enabled) {
-            console.log('[TTS] 语音合成已禁用');
+            console.log('[TTS] Voice synthesis disabled');
             return;
         }
 
@@ -59,9 +59,9 @@ export class TTSService {
 
             // 不预创建实例，每次合成时新建（避免 WebSocket 连接复用问题）
             this.initialized = true;
-            console.log('[TTS] 语音合成初始化完成，语音:', this.config.voice || 'zh-CN-XiaoxiaoNeural');
+            console.log('[TTS] Voice synthesis initialized, voice:', this.config.voice || 'zh-CN-XiaoxiaoNeural');
         } catch (error) {
-            console.error('[TTS] 初始化失败:', error);
+            console.error('[TTS] Initialization failed:', error);
             throw error;
         }
     }
@@ -73,17 +73,17 @@ export class TTSService {
      */
     async synthesize(text: string): Promise<Buffer> {
         if (!this.initialized) {
-            throw new Error('TTS 服务未初始化');
+            throw new Error('TTS service not initialized');
         }
 
         if (!text.trim()) {
-            throw new Error('合成文本不能为空');
+            throw new Error('Synthesis text cannot be empty');
         }
 
         // 清理 Markdown 格式，只保留纯文本
         const cleanText = this.stripMarkdown(text);
         if (!cleanText.trim()) {
-            throw new Error('清理后的文本为空');
+            throw new Error('Text is empty after cleanup');
         }
 
         // 截断过长文本
@@ -92,7 +92,7 @@ export class TTSService {
             ? cleanText.slice(0, maxLen) + '……'
             : cleanText;
 
-        console.log(`[TTS] 开始合成 (${finalText.length} 字符)...`);
+        console.log(`[TTS] Starting synthesis (${finalText.length} chars)...`);
         const start = Date.now();
 
         // toFile() 将路径当作目录，在里面生成 audio.mp3
@@ -118,10 +118,10 @@ export class TTSService {
 
             const audioBuffer = await readFile(outputFile);
             const elapsed = Date.now() - start;
-            console.log(`[TTS] 合成完成 (${elapsed}ms, ${(audioBuffer.length / 1024).toFixed(1)}KB)`);
+            console.log(`[TTS] Synthesis complete (${elapsed}ms, ${(audioBuffer.length / 1024).toFixed(1)}KB)`);
             return audioBuffer;
         } catch (error) {
-            console.error('[TTS] 合成失败:', error);
+            console.error('[TTS] Synthesis failed:', error);
             throw error;
         } finally {
             // 清理临时目录
@@ -134,11 +134,11 @@ export class TTSService {
      */
     async setVoice(voiceName: string): Promise<void> {
         if (!this.initialized) {
-            throw new Error('TTS 服务未初始化');
+            throw new Error('TTS service not initialized');
         }
 
         this.config.voice = voiceName;
-        console.log('[TTS] 语音已切换:', voiceName);
+        console.log('[TTS] Voice switched:', voiceName);
     }
 
     /**
@@ -166,7 +166,7 @@ export class TTSService {
 
             return this.voicesCache;
         } catch (error) {
-            console.error('[TTS] 获取语音列表失败:', error);
+            console.error('[TTS] Failed to get voice list:', error);
             return [];
         }
     }

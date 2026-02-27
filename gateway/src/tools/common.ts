@@ -34,12 +34,12 @@ export function readStringParam(
     const { required = false, trim = true, label = key, allowEmpty = false } = options;
     const raw = params[key];
     if (typeof raw !== 'string') {
-        if (required) throw new Error(`${label} 参数必填`);
+        if (required) throw new Error(`${label} parameter is required`);
         return undefined;
     }
     const value = trim ? raw.trim() : raw;
     if (!value && !allowEmpty) {
-        if (required) throw new Error(`${label} 参数必填`);
+        if (required) throw new Error(`${label} parameter is required`);
         return undefined;
     }
     return value;
@@ -68,7 +68,7 @@ export function readNumberParam(
     }
 
     if (value === undefined) {
-        if (required) throw new Error(`${label} 参数必填`);
+        if (required) throw new Error(`${label} parameter is required`);
         return undefined;
     }
 
@@ -110,7 +110,7 @@ export function readStringArrayParam(
             .map((entry) => (entry as string).trim())
             .filter(Boolean);
         if (values.length === 0) {
-            if (required) throw new Error(`${label} 参数必填`);
+            if (required) throw new Error(`${label} parameter is required`);
             return undefined;
         }
         return values;
@@ -119,13 +119,13 @@ export function readStringArrayParam(
     if (typeof raw === 'string') {
         const value = raw.trim();
         if (!value) {
-            if (required) throw new Error(`${label} 参数必填`);
+            if (required) throw new Error(`${label} parameter is required`);
             return undefined;
         }
         return [value];
     }
 
-    if (required) throw new Error(`${label} 参数必填`);
+    if (required) throw new Error(`${label} parameter is required`);
     return undefined;
 }
 
@@ -187,13 +187,13 @@ export function validateAction<T extends string>(
     // 当 LLM 传入空参数对象时，提供更详细的使用提示
     if (!params || Object.keys(params).length === 0) {
         throw new Error(
-            `参数不能为空。必须提供 action 参数。可选值: ${validActions.join(', ')}。` +
-            `\n调用示例: {"action": "${validActions[0]}", "path": "文件路径"}`
+            `Parameters cannot be empty. The action parameter is required. Valid values: ${validActions.join(', ')}.` +
+            `\nExample: {"action": "${validActions[0]}", "path": "/file/path"}`
         );
     }
     const action = readStringParam(params, 'action', { required: true, label: 'action' });
     if (!validActions.includes(action as T)) {
-        throw new Error(`无效的 action: ${action}，可选值: ${validActions.join(', ')}`);
+        throw new Error(`Invalid action: ${action}, valid values: ${validActions.join(', ')}`);
     }
     return action as T;
 }

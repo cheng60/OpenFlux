@@ -22,11 +22,11 @@ export interface NotifyToolOptions {
 export function createNotifyTool(opts: NotifyToolOptions): Tool {
     return {
         name: 'notify_user',
-        description: '通过企业 IM（飞书等）向用户发送通知消息。适用于任务完成通知、进度汇报、异常提醒等场景。注意：需要 Router 已连接且有过入站消息记录。',
+        description: 'Send notification messages to users via enterprise IM (e.g., Feishu/Lark). Suitable for task completion notifications, progress reports, and alerts. Note: Router must be connected with inbound message history.',
         parameters: {
             message: {
                 type: 'string',
-                description: '要发送的通知内容（支持纯文本）',
+                description: 'Notification content to send (plain text supported)',
                 required: true,
             },
         },
@@ -38,17 +38,17 @@ export function createNotifyTool(opts: NotifyToolOptions): Tool {
                 const bridge = opts.getRouterBridge();
                 const status = bridge.getStatus();
                 if (!status.connected) {
-                    return errorResult('Router 未连接，无法发送通知。请先在设置中配置并连接 Router。');
+                    return errorResult('Router not connected, cannot send notifications. Please configure and connect Router in settings first.');
                 }
                 if (!status.bound) {
-                    return errorResult('Router 未绑定，无法发送通知。请先完成 Router 绑定。');
+                    return errorResult('Router not bound, cannot send notifications. Please complete Router binding first.');
                 }
 
                 // 获取最近的入站用户
                 const lastUser = opts.getLastUser();
                 if (!lastUser) {
                     return errorResult(
-                        '没有可通知的用户。需要至少有一次来自飞书的入站消息，才能知道通知发送给谁。'
+                        'No user to notify. At least one inbound message from Feishu/Lark is required to determine the notification recipient.'
                     );
                 }
 
@@ -62,23 +62,23 @@ export function createNotifyTool(opts: NotifyToolOptions): Tool {
                 });
 
                 if (sent) {
-                    log.info('通知已发送', {
+                    log.info('Notification sent', {
                         platform: lastUser.platform_type,
                         userId: lastUser.platform_user_id,
                         messageLength: message.length,
                     });
                     return jsonResult({
                         success: true,
-                        message: '通知已发送',
+                        message: 'Notification sent',
                         platform: lastUser.platform_type,
                         userId: lastUser.platform_user_id,
                     });
                 } else {
-                    return errorResult('消息发送失败，Router 可能已断开连接。');
+                    return errorResult('Message sending failed, Router may have disconnected.');
                 }
             } catch (err: any) {
-                log.error('通知发送失败', { error: err.message });
-                return errorResult(`通知发送失败: ${err.message}`);
+                log.error('Notification send failed', { error: err.message });
+                return errorResult(`Notification sending failed: ${err.message}`);
             }
         },
     };

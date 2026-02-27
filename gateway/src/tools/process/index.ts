@@ -164,7 +164,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
         if (dockerAvailable) {
             const hasImage = await dockerExecutor.imageExists();
             if (!hasImage) {
-                log.warn(`Docker 镜像 '${opts.docker?.image || 'openflux-sandbox'}' 不存在，请先构建镜像`);
+                log.warn(`Docker image '${opts.docker?.image || 'openflux-sandbox'}' not found, please build it first`);
                 dockerAvailable = false;
             }
         }
@@ -182,7 +182,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
             );
             if (!allowed) {
                 throw new Error(
-                    `命令不在白名单中: ${command}\n允许的命令: ${allowedCommands.join(', ')}`
+                    `Command is not in the whitelist: ${command}\nAllowed commands: ${allowedCommands.join(', ')}`
                 );
             }
         }
@@ -192,13 +192,13 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
             // 完整匹配
             for (const dangerous of DANGEROUS_COMMANDS) {
                 if (lowerCmd.includes(dangerous.toLowerCase())) {
-                    throw new Error(`危险命令被阻止: ${command}`);
+                    throw new Error(`Dangerous command blocked: ${command}`);
                 }
             }
             // 前缀匹配
             for (const prefix of DANGEROUS_PREFIXES) {
                 if (lowerCmd.startsWith(prefix.toLowerCase())) {
-                    throw new Error(`危险命令被阻止: ${command}`);
+                    throw new Error(`Dangerous command blocked: ${command}`);
                 }
             }
         }
@@ -206,7 +206,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
         // 3. 自定义黑名单
         for (const blocked of blockedCommands) {
             if (lowerCmd.includes(blocked.toLowerCase())) {
-                throw new Error(`命令被阻止: ${command}`);
+                throw new Error(`Command blocked: ${command}`);
             }
         }
     }
@@ -230,45 +230,45 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                 return isAbsolute(p) ? p : resolve(defaultBase, p);
             });
             throw new Error(
-                `工作目录不在允许范围内: ${workDir}\n允许的目录: ${resolvedHints.join(', ')}`
+                `Working directory is not in the allowed range: ${workDir}\nAllowed directories: ${resolvedHints.join(', ')}`
             );
         }
     }
 
     return {
         name: 'process',
-        description: `进程和命令执行工具。支持的动作: ${PROCESS_ACTIONS.join(', ')}`,
+        description: `Process and command execution tool. Supported actions: ${PROCESS_ACTIONS.join(', ')}`,
         parameters: {
             action: {
                 type: 'string',
-                description: `操作类型: ${PROCESS_ACTIONS.join('/')}`,
+                description: `Action type: ${PROCESS_ACTIONS.join('/')}`,
                 required: true,
                 enum: [...PROCESS_ACTIONS],
             },
             command: {
                 type: 'string',
-                description: '要执行的命令',
+                description: 'Command to execute',
                 required: true,
             },
             args: {
                 type: 'array',
-                description: '命令参数数组（spawn 动作使用）',
+                description: 'Command arguments array (for spawn action)',
             },
             pid: {
                 type: 'number',
-                description: '进程 PID（kill 动作使用）',
+                description: 'Process PID (for kill action)',
             },
             cwd: {
                 type: 'string',
-                description: '工作目录',
+                description: 'Working directory',
             },
             timeout: {
                 type: 'number',
-                description: '超时时间（毫秒）',
+                description: 'Timeout in milliseconds',
             },
             env: {
                 type: 'object',
-                description: '环境变量',
+                description: 'Environment variables',
             },
         },
 
@@ -340,7 +340,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                                 ...(generatedFiles?.length ? { generatedFiles } : {}),
                             });
                         } catch (error: any) {
-                            return errorResult(`Docker 执行失败: ${error.message}`);
+                            return errorResult(`Docker execution failed: ${error.message}`);
                         }
                     }
 
@@ -378,7 +378,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                         });
                     } catch (error: any) {
                         if (error.killed) {
-                            return errorResult(`命令超时（${cmdTimeout}ms）`);
+                            return errorResult(`Command timed out (${cmdTimeout}ms)`);
                         }
 
                         let generatedFiles: GeneratedFile[] | undefined = undefined;
@@ -436,7 +436,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                             child.on('error', (err: Error) => {
                                 if (!settled) {
                                     settled = true;
-                                    resolve(errorResult(`启动进程失败: ${err.message}`));
+                                    resolve(errorResult(`Failed to start process: ${err.message}`));
                                 }
                             });
                             // 200ms 内没有 error 就认为启动成功
@@ -454,7 +454,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                                         sessionId: opts.getSessionId?.(),
                                         startTime: Date.now(),
                                     });
-                                    log.info('后台进程已启动', { pid, command: spawnCmd, args: spawnArgs });
+                                    log.info('Background process started', { pid, command: spawnCmd, args: spawnArgs });
                                     resolve(jsonResult({
                                         command: spawnCmd,
                                         args: spawnArgs,
@@ -466,7 +466,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                         });
                         return result;
                     } catch (error: any) {
-                        return errorResult(`启动进程失败: ${error.message}`);
+                        return errorResult(`Failed to start process: ${error.message}`);
                     }
                 }
 
@@ -474,7 +474,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                 case 'kill': {
                     const pid = readNumberParam(args, 'pid', { integer: true });
                     if (!pid) {
-                        return errorResult('请提供要终止的进程 PID');
+                        return errorResult('Please provide the PID of the process to terminate');
                     }
                     const proc = spawnedProcesses.get(pid);
                     try {
@@ -488,7 +488,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                             processKill(pid, 'SIGTERM');
                         }
                         spawnedProcesses.delete(pid);
-                        log.info('后台进程已终止', { pid, command: proc?.command });
+                        log.info('Background process terminated', { pid, command: proc?.command });
                         return jsonResult({
                             pid,
                             killed: true,
@@ -498,7 +498,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                     } catch (error: any) {
                         // 进程可能已经退出
                         spawnedProcesses.delete(pid);
-                        return errorResult(`终止进程失败 (PID: ${pid}): ${error.message}`);
+                        return errorResult(`Failed to terminate process (PID: ${pid}): ${error.message}`);
                     }
                 }
 
@@ -546,7 +546,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                                 sandbox: 'docker',
                             });
                         } catch (error: any) {
-                            return errorResult(`Docker 执行失败: ${error.message}`);
+                            return errorResult(`Docker execution failed: ${error.message}`);
                         }
                     }
 
@@ -579,7 +579,7 @@ export function createProcessTool(opts: ProcessToolOptions = {}): AnyTool {
                 }
 
                 default:
-                    return errorResult(`未知动作: ${action}`);
+                    return errorResult(`Unknown action: ${action}`);
             }
         },
     };

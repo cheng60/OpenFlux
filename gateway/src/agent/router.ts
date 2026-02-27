@@ -27,38 +27,38 @@ export interface RouteResult {
  */
 function buildRouterPrompt(agents: AgentConfig[]): string {
     const agentList = agents
-        .map(a => `- id: "${a.id}", name: "${a.name || a.id}", description: "${a.description || '通用助手'}"`)
+        .map(a => `- id: "${a.id}", name: "${a.name || a.id}", description: "${a.description || 'General assistant'}"`)
         .join('\n');
 
-    return `你是一个任务分类器。根据用户输入，选择最合适的 Agent 来处理。
+    return `You are a task classifier. Based on user input, select the most appropriate Agent to handle it.
 
-可用的 Agent：
+Available Agents:
 ${agentList}
 
-规则：
-1. 只返回一个 Agent 的 id，不要返回其他内容
-2. 如果不确定，返回默认 Agent 的 id
-3. 只返回 id 字符串，不要加引号或其他格式`;
+Rules:
+1. Return only one Agent's id, nothing else
+2. If unsure, return the default Agent's id
+3. Return only the id string, without quotes or other formatting`;
 }
 
 /**
- * 快速路径检测
- * 某些明显的意图可以直接路由，无需调用 LLM
+ * Quick path detection
+ * Some obvious intents can be routed directly without calling LLM
  */
 function quickRoute(input: string, agents: AgentConfig[]): RouteResult | null {
     const lower = input.toLowerCase().trim();
 
-    // 空输入或纯聊天（很短且无明显工具意图）→ 默认 Agent
+    // Empty input or very short → default Agent
     if (lower.length < 5) {
         const defaultAgent = agents.find(a => a.default) || agents[0];
         return {
             agentId: defaultAgent.id,
-            reason: '输入过短，使用默认 Agent',
+            reason: 'Input too short, using default Agent',
             usedLLM: false,
         };
     }
 
-    // 显式指定 Agent（用户输入 "@agentId ..."）
+    // Explicit Agent mention (user input "@agentId ...")
     const mentionMatch = input.match(/^@(\w+)\s+/);
     if (mentionMatch) {
         const mentionedId = mentionMatch[1];
@@ -66,29 +66,29 @@ function quickRoute(input: string, agents: AgentConfig[]): RouteResult | null {
         if (matched) {
             return {
                 agentId: matched.id,
-                reason: `用户显式指定 @${matched.id}`,
+                reason: `User explicitly specified @${matched.id}`,
                 usedLLM: false,
             };
         }
     }
 
-    // 只有一个 Agent → 直接使用
+    // Only one Agent → use directly
     if (agents.length === 1) {
         return {
             agentId: agents[0].id,
-            reason: '仅有一个 Agent',
+            reason: 'Only one Agent available',
             usedLLM: false,
         };
     }
 
-    // 关键词快速路由 → automation agent
+    // Keyword quick routing → automation agent
     const automationAgent = agents.find(a => a.id === 'automation');
     if (automationAgent) {
-        const automationKeywords = /买|购|采购|下单|加入购物车|网购|搜索.*(?:价格|多少钱)|浏览器|打开网页|打开.*(?:淘宝|京东|拼多多|天猫|亚马逊)|自动化|定时任务|爬取|抓取|网页操作|填写表单|注册账号|登录网站/;
+        const automationKeywords = /买|购|采购|下单|加入购物车|网购|搜索.*(?:价格|多少钱)|浏览器|打开网页|打开.*(?:淘宝|京东|拼多多|天猫|亚马逊)|自动化|定时任务|爬取|抓取|网页操作|填写表单|注册账号|登录网站|buy|purchase|order|add to cart|shopping|browse|open website|automat|schedule|crawl|scrape|web operation|fill form|register|login/i;
         if (automationKeywords.test(input)) {
             return {
                 agentId: automationAgent.id,
-                reason: '关键词快速匹配到自动化任务',
+                reason: 'Keyword matched to automation task',
                 usedLLM: false,
             };
         }
@@ -112,7 +112,7 @@ export async function routeToAgent(
     // 快速路径
     const quick = quickRoute(input, agents);
     if (quick) {
-        log.debug(`快速路由: ${quick.agentId} (${quick.reason})`);
+        log.debug(`Quick route: ${quick.agentId} (${quick.reason})`);
         return quick;
     }
 
@@ -131,29 +131,29 @@ export async function routeToAgent(
         const matched = agents.find(a => a.id === responseId);
 
         if (matched) {
-            log.info(`LLM 路由: ${matched.id} (${matched.name || matched.id})`);
+            log.info(`LLM routed to: ${matched.id} (${matched.name || matched.id})`);
             return {
                 agentId: matched.id,
-                reason: `LLM 分析选择 "${matched.name || matched.id}"`,
+                reason: `LLM selected "${matched.name || matched.id}"`,
                 usedLLM: true,
             };
         }
 
         // LLM 返回了无效 ID → 回退默认
-        log.warn(`LLM 返回无效 Agent ID: "${responseId}"，回退默认`);
+        log.warn(`LLM returned invalid Agent ID: "${responseId}", falling back to default`);
         return {
             agentId: defaultAgent.id,
-            reason: `LLM 返回无效 ID "${responseId}"，回退默认`,
+            reason: `LLM returned invalid ID "${responseId}", falling back to default`,
             usedLLM: true,
         };
 
     } catch (error) {
         // LLM 调用失败 → 回退默认
         const errorMsg = error instanceof Error ? error.message : String(error);
-        log.error(`路由 LLM 调用失败: ${errorMsg}，回退默认`);
+        log.error(`Router LLM call failed: ${errorMsg}, falling back to default`);
         return {
             agentId: defaultAgent.id,
-            reason: `路由失败: ${errorMsg}`,
+            reason: `Routing failed: ${errorMsg}`,
             usedLLM: false,
         };
     }

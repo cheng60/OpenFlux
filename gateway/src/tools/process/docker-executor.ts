@@ -70,10 +70,10 @@ export class DockerExecutor {
         try {
             await execAsync('docker info', { timeout: 5000, windowsHide: true });
             this._available = true;
-            log.info('Docker 可用');
+            log.info('Docker available');
         } catch {
             this._available = false;
-            log.warn('Docker 不可用，将回退到本地执行');
+            log.warn('Docker unavailable, will fall back to local execution');
         }
         return this._available;
     }
@@ -132,7 +132,7 @@ export class DockerExecutor {
 
         const fullCommand = args.map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
 
-        log.debug('Docker 执行命令', { command: command.slice(0, 100), timeout });
+        log.debug('Docker execute command', { command: command.slice(0, 100), timeout });
 
         try {
             const { stdout, stderr } = await execAsync(fullCommand, {
@@ -148,10 +148,10 @@ export class DockerExecutor {
             };
         } catch (error: any) {
             if (error.killed) {
-                log.warn('Docker 容器超时', { timeout });
+                log.warn('Docker container timed out', { timeout });
                 return {
                     stdout: error.stdout?.trim() || '',
-                    stderr: `容器执行超时（${timeout}ms）`,
+                    stderr: `Container execution timeout (${timeout}ms)`,
                     exitCode: 124,
                 };
             }

@@ -58,11 +58,11 @@ export interface OpenFlux {
  * 初始化 OpenFlux
  */
 export async function bootstrap(): Promise<OpenFlux> {
-    log.info('OpenFlux 启动中...');
+    log.info('OpenFlux starting...');
 
     // 1. 加载配置
     const config = await loadConfig();
-    log.info('配置加载完成');
+    log.info('Configuration loaded');
 
     // 2. 初始化默认 LLM Provider（使用 orchestration 配置）
     const llmConfig = config.llm.orchestration;
@@ -98,14 +98,14 @@ export async function bootstrap(): Promise<OpenFlux> {
         webSearch: config.web?.search,
         webFetch: config.web?.fetch,
     });
-    log.info(`工作流引擎初始化完成`);
+    log.info(`Workflow engine initialized`);
 
     // 4. 添加 spawn 工具（临时版本，后续由 AgentManager 替换各 Agent 上下文中的 spawn）
     const defaultSubAgentExecutor = createSubAgentExecutor({
         llm,
         tools,
         onComplete: (result) => {
-            log.info(`SubAgent 完成: ${result.id}`, { status: result.status });
+            log.info(`SubAgent completed: ${result.id}`, { status: result.status });
         },
     });
     const spawnTool = createSpawnTool({
@@ -114,13 +114,13 @@ export async function bootstrap(): Promise<OpenFlux> {
         onExecute: defaultSubAgentExecutor,
     });
     tools.register(spawnTool);
-    log.info(`工具注册完成，共 ${tools.getToolNames().length} 个`);
+    log.info(`Tools registered, total: ${tools.getToolNames().length}`);
 
     // 5. 初始化会话存储
     const sessions = new SessionStore({
         storePath: config.workspace,
     });
-    log.info('会话存储初始化完成');
+    log.info('Session store initialized');
 
     // 6. 创建 AgentManager（多 Agent 核心）
     const agentManager = new AgentManager({
@@ -132,9 +132,9 @@ export async function bootstrap(): Promise<OpenFlux> {
 
     if (config.agents) {
         const agents = agentManager.getAgents();
-        log.info(`多 Agent 模式: ${agents.length} 个 Agent, 路由: ${agentManager.isRouterEnabled() ? '启用' : '禁用'}`);
+        log.info(`Multi-Agent mode: ${agents.length} Agents, router: ${agentManager.isRouterEnabled() ? 'enabled' : 'disabled'}`);
     } else {
-        log.info('单 Agent 模式（未配置 agents）');
+        log.info('Single Agent mode (agents not configured)');
     }
 
     // 7. 运行函数（支持进度回调 + agentId 路由 + 文件附件）
@@ -154,7 +154,7 @@ export async function bootstrap(): Promise<OpenFlux> {
 
     // 8. 启动调度器
     scheduler.start();
-    log.info('调度器启动完成');
+    log.info('Scheduler started');
 
     // 9. Gateway 服务
     let gateway: ReturnType<typeof createGatewayServer> | null = null;
@@ -170,17 +170,17 @@ export async function bootstrap(): Promise<OpenFlux> {
         });
 
         await gateway.start();
-        log.info(`Gateway 启动: ws://localhost:${config.remote?.port || 18801}`);
+        log.info(`Gateway started: ws://localhost:${config.remote?.port || 18801}`);
     };
 
     const stopGateway = async () => {
         if (!gateway) return;
         await gateway.stop();
         gateway = null;
-        log.info('Gateway 停止');
+        log.info('Gateway stopped');
     };
 
-    log.info('OpenFlux 初始化完成');
+    log.info('OpenFlux initialization complete');
 
     return {
         config,

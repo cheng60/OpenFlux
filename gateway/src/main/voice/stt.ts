@@ -50,7 +50,7 @@ export class STTService {
      */
     async initialize(): Promise<void> {
         if (!this.config.enabled) {
-            console.log('[STT] 语音识别已禁用');
+            console.log('[STT] Speech recognition disabled');
             return;
         }
 
@@ -58,30 +58,30 @@ export class STTService {
             // 动态加载 sherpa-onnx-node
             sherpaOnnx = require('sherpa-onnx-node');
         } catch (error) {
-            console.error('[STT] 加载 sherpa-onnx-node 失败:', error);
-            throw new Error('sherpa-onnx-node 加载失败，请确认已正确安装');
+            console.error('[STT] Failed to load sherpa-onnx-node:', error);
+            throw new Error('sherpa-onnx-node failed to load, please verify it is installed correctly');
         }
 
         // 查找模型目录
         const modelDir = this.resolveModelDir();
         if (!modelDir) {
-            console.warn('[STT] 未找到模型文件，语音识别不可用。请下载模型到 resources/models/sherpa-onnx/ 目录');
+            console.warn('[STT] Model files not found, speech recognition unavailable. Please download models to resources/models/sherpa-onnx/ directory');
             return;
         }
 
         // 检测模型类型并创建识别器
         const recognizerConfig = this.buildRecognizerConfig(modelDir);
         if (!recognizerConfig) {
-            console.warn('[STT] 无法构建识别器配置，模型文件可能不完整');
+            console.warn('[STT] Cannot build recognizer config, model files may be incomplete');
             return;
         }
 
         try {
             this.recognizer = new sherpaOnnx.OfflineRecognizer(recognizerConfig);
             this.initialized = true;
-            console.log('[STT] 语音识别初始化完成，模型目录:', modelDir);
+            console.log('[STT] Speech recognition initialized, model dir:', modelDir);
         } catch (error) {
-            console.error('[STT] 识别器初始化失败:', error);
+            console.error('[STT] Recognizer initialization failed:', error);
             throw error;
         }
     }
@@ -93,7 +93,7 @@ export class STTService {
      */
     async transcribe(audioBuffer: Buffer): Promise<STTResult> {
         if (!this.initialized || !this.recognizer) {
-            throw new Error('STT 服务未初始化，请先下载模型文件');
+            throw new Error('STT service not initialized, please download model files first');
         }
 
         const start = Date.now();
@@ -113,10 +113,10 @@ export class STTService {
             const elapsed = Date.now() - start;
             const text = (result.text || '').trim();
 
-            console.log(`[STT] 识别完成: "${text}" (${elapsed}ms)`);
+            console.log(`[STT] Recognition complete: "${text}" (${elapsed}ms)`);
             return { text, elapsed };
         } catch (error) {
-            console.error('[STT] 识别失败:', error);
+            console.error('[STT] Recognition failed:', error);
             throw error;
         }
     }
@@ -249,7 +249,7 @@ export class STTService {
             };
         }
 
-        console.warn('[STT] 未识别的模型格式，目录:', modelDir);
+        console.warn('[STT] Unrecognized model format, dir:', modelDir);
         return null;
     }
 
@@ -272,12 +272,12 @@ export class STTService {
         // WAV 文件头解析
         const riff = buffer.toString('ascii', 0, 4);
         if (riff !== 'RIFF') {
-            throw new Error('不是有效的 WAV 文件');
+            throw new Error('Not a valid WAV file');
         }
 
         const format = buffer.toString('ascii', 8, 12);
         if (format !== 'WAVE') {
-            throw new Error('不是有效的 WAVE 格式');
+            throw new Error('Not a valid WAVE format');
         }
 
         // 查找 fmt 和 data chunks
@@ -307,7 +307,7 @@ export class STTService {
         }
 
         if (dataOffset === 0 || dataSize === 0) {
-            throw new Error('WAV 文件中未找到音频数据');
+            throw new Error('Audio data not found in WAV file');
         }
 
         // 将 PCM 数据转换为 Float32Array

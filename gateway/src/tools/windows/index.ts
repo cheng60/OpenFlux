@@ -60,56 +60,56 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
 
     return {
         name: 'windows',
-        description: `Windows 系统工具。支持动作: ${WINDOWS_ACTIONS.join(', ')}`,
+        description: `Windows system tool. Supported actions: ${WINDOWS_ACTIONS.join(', ')}`,
         parameters: {
             action: {
                 type: 'string',
-                description: `操作类型: ${WINDOWS_ACTIONS.join('/')}`,
+                description: `Action type: ${WINDOWS_ACTIONS.join('/')}`,
                 required: true,
                 enum: [...WINDOWS_ACTIONS],
             },
             subAction: {
                 type: 'string',
-                description: '子操作（clipboard: read/write; clipboardImage: read/write; window: list/activate/minimize/maximize; app: launch/list; com: exec）',
+                description: 'Sub-action (clipboard: read/write; clipboardImage: read/write; window: list/activate/minimize/maximize; app: launch/list; com: exec)',
             },
             text: {
                 type: 'string',
-                description: '文本内容（clipboard write、notification）',
+                description: 'Text content (for clipboard write, notification)',
             },
             title: {
                 type: 'string',
-                description: '通知标题',
+                description: 'Notification title',
             },
             windowTitle: {
                 type: 'string',
-                description: '窗口标题（模糊匹配）',
+                description: 'Window title (fuzzy match)',
             },
             script: {
                 type: 'string',
-                description: 'PowerShell 脚本内容（powershell 动作使用）',
+                description: 'PowerShell script content (for powershell action)',
             },
             timeout: {
                 type: 'number',
-                description: 'PowerShell 超时时间（毫秒），默认 30000',
+                description: 'PowerShell timeout in milliseconds, default 30000',
             },
             appName: {
                 type: 'string',
-                description: 'app: 应用名称或路径（如 notepad, excel, chrome）; com: COM 应用名（Excel.Application/Word.Application）',
+                description: 'app: Application name or path (e.g., notepad, excel, chrome); com: COM app name (Excel.Application/Word.Application)',
             },
             appArgs: {
                 type: 'string',
-                description: 'app launch: 启动参数',
+                description: 'app launch: Startup arguments',
             },
             imagePath: {
                 type: 'string',
-                description: 'clipboardImage: 图片文件路径（read 保存路径 / write 源路径）',
+                description: 'clipboardImage: Image file path (read save path / write source path)',
             },
         },
 
         execute: async (args: Record<string, unknown>): Promise<ToolResult> => {
             // 检查是否是 Windows
             if (platform() !== 'win32') {
-                return errorResult('此工具仅支持 Windows 系统');
+                return errorResult('This tool is only supported on Windows');
             }
 
             const action = validateAction(args, WINDOWS_ACTIONS);
@@ -150,7 +150,7 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                 case 'clipboard': {
                     if (subAction === 'write') {
                         if (!text) {
-                            return errorResult('缺少 text 参数');
+                            return errorResult('Missing text parameter');
                         }
                         // 使用临时文件避免 PowerShell 字符串解析问题（emoji、换行、引号）
                         const fs = await import('fs');
@@ -173,7 +173,7 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                 // 系统通知
                 case 'notification': {
                     if (!text) {
-                        return errorResult('缺少 text 参数');
+                        return errorResult('Missing text parameter');
                     }
 
                     const script = `
@@ -195,7 +195,7 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                             await runPowerShell(`msg * "${text.replace(/"/g, '')}"`);
                             return jsonResult({ success: true, fallback: true, message: text });
                         } catch {
-                            return errorResult('发送通知失败');
+                            return errorResult('Failed to send notification');
                         }
                     }
                 }
@@ -216,7 +216,7 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
 
                         case 'activate': {
                             if (!windowTitle) {
-                                return errorResult('缺少 windowTitle 参数');
+                                return errorResult('Missing windowTitle parameter');
                             }
                             const activateScript = `
                                 Add-Type @"
@@ -237,14 +237,14 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                             `.replace(/\n/g, ' ');
                             const result = await runPowerShell(activateScript);
                             if (result === 'NotFound') {
-                                return errorResult(`未找到匹配窗口: ${windowTitle}`);
+                                return errorResult(`No matching window found: ${windowTitle}`);
                             }
                             return jsonResult({ success: true, activated: result });
                         }
 
                         case 'minimize': {
                             if (!windowTitle) {
-                                return errorResult('缺少 windowTitle 参数');
+                                return errorResult('Missing windowTitle parameter');
                             }
                             const minScript = `
                                 Add-Type @"
@@ -264,7 +264,7 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
 
                         case 'maximize': {
                             if (!windowTitle) {
-                                return errorResult('缺少 windowTitle 参数');
+                                return errorResult('Missing windowTitle parameter');
                             }
                             const maxScript = `
                                 Add-Type @"
@@ -283,14 +283,14 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                         }
 
                         default:
-                            return errorResult(`未知窗口操作: ${subAction}，支持: list/activate/minimize/maximize`);
+                            return errorResult(`Unknown window action: ${subAction}, supported: list/activate/minimize/maximize`);
                     }
                 }
 
                 // 执行 PowerShell 脚本（临时文件方式，支持超长脚本和复杂语法）
                 case 'powershell': {
                     if (!script) {
-                        return errorResult('缺少 script 参数');
+                        return errorResult('Missing script parameter');
                     }
 
                     const tmpFile = join(process.env.TEMP || 'C:\\Temp', `openflux_ps_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.ps1`);
@@ -307,7 +307,7 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                         });
                     } catch (error: any) {
                         if (error.killed) {
-                            return errorResult(`PowerShell 脚本超时（${scriptTimeout}ms）`);
+                            return errorResult(`PowerShell script timed out (${scriptTimeout}ms)`);
                         }
                         return jsonResult({
                             success: false,
@@ -328,7 +328,7 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                     switch (subAction) {
                         case 'launch': {
                             if (!appName) {
-                                return errorResult('缺少 appName 参数');
+                                return errorResult('Missing appName parameter');
                             }
                             try {
                                 const launchCmd = appArgs
@@ -342,7 +342,7 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                                     return jsonResult({ success: true, launched: appName, raw: result });
                                 }
                             } catch (error: any) {
-                                return errorResult(`启动应用失败: ${error.message}`);
+                                return errorResult(`Failed to launch application: ${error.message}`);
                             }
                         }
 
@@ -357,12 +357,12 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                                     return jsonResult({ apps: [], raw: result });
                                 }
                             } catch (error: any) {
-                                return errorResult(`获取应用列表失败: ${error.message}`);
+                                return errorResult(`Failed to get application list: ${error.message}`);
                             }
                         }
 
                         default:
-                            return errorResult(`未知 app 操作: ${subAction}，支持: launch/list`);
+                            return errorResult(`Unknown app action: ${subAction}, supported: launch/list`);
                     }
                 }
 
@@ -386,17 +386,17 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                                 `.replace(/\n/g, ' ');
                                 const result = await runPowerShell(readScript);
                                 if (result.includes('empty')) {
-                                    return jsonResult({ hasImage: false, message: '剪贴板中没有图片' });
+                                    return jsonResult({ hasImage: false, message: 'No image in clipboard' });
                                 }
                                 return jsonResult({ hasImage: true, path: savePath });
                             } catch (error: any) {
-                                return errorResult(`读取剪贴板图片失败: ${error.message}`);
+                                return errorResult(`Failed to read clipboard image: ${error.message}`);
                             }
                         }
 
                         case 'write': {
                             if (!imagePath) {
-                                return errorResult('缺少 imagePath 参数');
+                                return errorResult('Missing imagePath parameter');
                             }
                             try {
                                 const writeScript = `
@@ -409,12 +409,12 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                                 await runPowerShell(writeScript);
                                 return jsonResult({ success: true, path: imagePath });
                             } catch (error: any) {
-                                return errorResult(`写入剪贴板图片失败: ${error.message}`);
+                                return errorResult(`Failed to write clipboard image: ${error.message}`);
                             }
                         }
 
                         default:
-                            return errorResult(`未知 clipboardImage 操作: ${subAction}，支持: read/write`);
+                            return errorResult(`Unknown clipboardImage action: ${subAction}, supported: read/write`);
                     }
                 }
 
@@ -422,10 +422,10 @@ export function createWindowsTool(opts: WindowsToolOptions = {}): AnyTool {
                 case 'com': {
                     const appName = readStringParam(args, 'appName') || '';
                     if (!appName) {
-                        return errorResult('缺少 appName 参数（如 Excel.Application, Word.Application）');
+                        return errorResult('Missing appName parameter (e.g., Excel.Application, Word.Application)');
                     }
                     if (!script) {
-                        return errorResult('缺少 script 参数（PowerShell COM 操作脚本）');
+                        return errorResult('Missing script parameter (PowerShell COM operation script)');
                     }
 
                     // 封装 COM 脚本：自动获取或创建 COM 对象
@@ -457,7 +457,7 @@ ${script}
                 }
 
                 default:
-                    return errorResult(`未知动作: ${action}`);
+                    return errorResult(`Unknown action: ${action}`);
             }
         },
     };
@@ -484,9 +484,9 @@ function formatUptime(seconds: number): string {
     const minutes = Math.floor((seconds % 3600) / 60);
 
     const parts = [];
-    if (days > 0) parts.push(`${days}天`);
-    if (hours > 0) parts.push(`${hours}小时`);
-    parts.push(`${minutes}分钟`);
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    parts.push(`${minutes}m`);
 
     return parts.join(' ');
 }

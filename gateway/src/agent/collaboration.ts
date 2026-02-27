@@ -176,7 +176,7 @@ export class CollaborationManager {
      */
     async spawn(params: CollabSpawnParams): Promise<CollabSpawnResult> {
         if (!this.executor) {
-            throw new Error('Agent 执行器未初始化');
+            throw new Error('Agent executor not initialized');
         }
 
         // 验证目标 Agent 是否存在
@@ -192,7 +192,7 @@ export class CollaborationManager {
         // 检查并发限制
         const runningCount = this.getRunningCount();
         if (runningCount >= this.maxConcurrent) {
-            throw new Error(`已达到最大并发协作会话数 (${this.maxConcurrent})`);
+            throw new Error(`Maximum concurrent collaboration sessions reached (${this.maxConcurrent})`);
         }
 
         const sessionId = `collab-${randomUUID().slice(0, 8)}`;
@@ -210,7 +210,7 @@ export class CollaborationManager {
         };
         this.sessions.set(sessionId, session);
 
-        log.info(`创建协作会话: ${sessionId}`, {
+        log.info(`Creating collaboration session: ${sessionId}`, {
             agentId: params.agentId,
             task: params.task.slice(0, 100),
             waitForResult: params.waitForResult,
@@ -227,7 +227,7 @@ export class CollaborationManager {
 
         // 异步模式：后台执行，立即返回
         executePromise.catch((err) => {
-            log.error(`协作会话异步执行失败: ${sessionId}`, { error: err });
+            log.error(`Collaboration session async execution failed: ${sessionId}`, { error: err });
         });
 
         return {
@@ -246,7 +246,7 @@ export class CollaborationManager {
     }): CollabMessage {
         const session = this.sessions.get(params.targetSessionId);
         if (!session) {
-            throw new Error(`协作会话不存在: ${params.targetSessionId}`);
+            throw new Error(`Collaboration session does not exist: ${params.targetSessionId}`);
         }
 
         const msg: CollabMessage = {
@@ -259,7 +259,7 @@ export class CollaborationManager {
         };
 
         session.messages.push(msg);
-        log.info(`消息发送: ${params.fromAgentId || 'main'} -> ${session.agentId}`, {
+        log.info(`Message sent: ${params.fromAgentId || 'main'} -> ${session.agentId}`, {
             sessionId: params.targetSessionId,
         });
 
@@ -315,7 +315,7 @@ export class CollaborationManager {
      */
     async spawnBatch(params: CollabBatchParams): Promise<CollabBatchResult> {
         if (!this.executor) {
-            throw new Error('Agent 执行器未初始化');
+            throw new Error('Agent executor not initialized');
         }
 
         const timeout = params.timeout || 300;
@@ -344,7 +344,7 @@ export class CollaborationManager {
             }
         }
 
-        log.info(`批量创建协作会话: ${sessionIds.length} 个`, {
+        log.info(`Batch creating collaboration sessions: ${sessionIds.length}`, {
             agents: params.tasks.map(t => t.agentId),
         });
 
@@ -374,7 +374,7 @@ export class CollaborationManager {
         const startTime = Date.now();
         const timeoutMs = timeoutSec * 1000;
 
-        log.info(`等待 ${sessionIds.length} 个协作会话完成`, { sessionIds });
+        log.info(`Waiting for ${sessionIds.length} collaboration sessions to complete`, { sessionIds });
 
         // 轮询等待
         while (true) {
@@ -387,7 +387,7 @@ export class CollaborationManager {
 
             // 超时检查
             if (Date.now() - startTime > timeoutMs) {
-                log.warn('waitAll 超时，部分会话未完成');
+                log.warn('waitAll timed out, some sessions incomplete');
                 break;
             }
 
@@ -425,7 +425,7 @@ export class CollaborationManager {
             totalDuration: Date.now() - startTime,
         };
 
-        log.info('waitAll 完成', summary);
+        log.info('waitAll completed', summary);
 
         return { results, summary };
     }
@@ -463,7 +463,7 @@ export class CollaborationManager {
         try {
             const timeoutMs = timeoutSec * 1000;
             const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('执行超时')), timeoutMs);
+                setTimeout(() => reject(new Error('Execution timed out')), timeoutMs);
             });
 
             const executePromise = this.executor!(agentId, task, sessionId);
@@ -476,7 +476,7 @@ export class CollaborationManager {
             session.endTime = Date.now();
             session.output = result.output;
 
-            log.info(`协作会话完成: ${sessionId}`, { agentId, duration });
+            log.info(`Collaboration session completed: ${sessionId}`, { agentId, duration });
 
             return {
                 sessionId,
@@ -487,13 +487,13 @@ export class CollaborationManager {
         } catch (error) {
             const duration = Date.now() - session.startTime;
             const errorMsg = error instanceof Error ? error.message : String(error);
-            const isTimeout = errorMsg === '执行超时';
+            const isTimeout = errorMsg === 'Execution timed out';
 
             session.status = isTimeout ? 'timeout' : 'failed';
             session.endTime = Date.now();
             session.error = errorMsg;
 
-            log.error(`协作会话${isTimeout ? '超时' : '失败'}: ${sessionId}`, { error: errorMsg });
+            log.error(`Collaboration session ${isTimeout ? 'timed out' : 'failed'}: ${sessionId}`, { error: errorMsg });
 
             return {
                 sessionId,

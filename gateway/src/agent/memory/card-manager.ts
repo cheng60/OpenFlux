@@ -54,7 +54,7 @@ export class CardManager extends EventEmitter {
 
         // 确保卡片向量表存在
         this.ensureCardVecTable();
-        this.logger.info('CardManager 初始化完成', {
+        this.logger.info('CardManager initialized', {
             enabled: this.distillationConfig.enabled,
             schedule: `${this.distillationConfig.startTime} - ${this.distillationConfig.endTime}`
         });
@@ -73,7 +73,7 @@ export class CardManager extends EventEmitter {
     updateConfig(config: Partial<DistillationConfig>) {
         this.distillationConfig = { ...this.distillationConfig, ...config };
         this.emit('configUpdated', this.distillationConfig);
-        this.logger.info('蒸馏配置已更新', config);
+        this.logger.info('Distillation config updated', config);
     }
 
     /** 更新 chat LLM */
@@ -103,7 +103,7 @@ export class CardManager extends EventEmitter {
             // 1. LLM 统一提取：质量、主题、摘要
             const extraction = await this.extractCardInfo(content);
             if (!extraction) {
-                this.logger.debug('LLM 提取失败，跳过卡片生成');
+                this.logger.debug('LLM extraction failed, skipping card generation');
                 return null;
             }
 
@@ -116,19 +116,19 @@ export class CardManager extends EventEmitter {
             ) / 4;
 
             if (qualityScore < this.distillationConfig.qualityThreshold) {
-                this.logger.debug(`质量不足，跳过 (${qualityScore.toFixed(1)} < ${this.distillationConfig.qualityThreshold})`);
+                this.logger.debug(`Quality insufficient, skipping (${qualityScore.toFixed(1)} < ${this.distillationConfig.qualityThreshold})`);
                 return null;
             }
 
             // 3. 语义去重检查
             const isDuplicate = await this.checkDuplicate(extraction.summary, 'Micro');
             if (isDuplicate) {
-                this.logger.debug('检测到重复卡片，跳过');
+                this.logger.debug('Duplicate card detected, skipping');
                 return null;
             }
 
             // 4. 获取/创建主题
-            const primaryTopic = extraction.topics[0] || '未分类';
+            const primaryTopic = extraction.topics[0] || 'Uncategorized';
             const topicId = await this.getOrCreateTopic(primaryTopic);
 
             // 5. 创建卡片
@@ -151,7 +151,7 @@ export class CardManager extends EventEmitter {
                 // 通过 tag 标记关联即可（轻量实现）
             }
 
-            this.logger.info(`✅ Micro 卡片已生成: "${extraction.summary.substring(0, 50)}..."`, {
+            this.logger.info(`✅ Micro card generated: "${extraction.summary.substring(0, 50)}..."`, {
                 cardId: card.cardId,
                 quality: qualityScore.toFixed(1),
                 topic: primaryTopic
@@ -161,7 +161,7 @@ export class CardManager extends EventEmitter {
             return card;
 
         } catch (error) {
-            this.logger.error('生成 Micro 卡片失败', { error: String(error) });
+            this.logger.error('Failed to generate Micro card', { error: String(error) });
             return null;
         }
     }
@@ -354,7 +354,7 @@ export class CardManager extends EventEmitter {
                 }
             }
         } catch (e) {
-            this.logger.warn('卡片向量搜索失败，使用关键词搜索', { error: String(e) });
+            this.logger.warn('Card vector search failed, using keyword search', { error: String(e) });
         }
 
         // 2. FTS 搜索
@@ -375,7 +375,7 @@ export class CardManager extends EventEmitter {
                 }
             }
         } catch (e) {
-            this.logger.warn('卡片 FTS 搜索失败', { error: String(e) });
+            this.logger.warn('Card FTS search failed', { error: String(e) });
         }
 
         if (scores.size === 0) return [];
@@ -428,29 +428,29 @@ export class CardManager extends EventEmitter {
         let context = '';
 
         if (macros.length > 0) {
-            context += '\n## 长期记忆概要\n';
+            context += '\n## Long-term Memory Overview\n';
             macros.forEach((c, i) => {
-                context += `${i + 1}. ${c.summary} (相关度: ${c.score.toFixed(2)})\n`;
+                context += `${i + 1}. ${c.summary} (relevance: ${c.score.toFixed(2)})\n`;
             });
         }
 
         if (minis.length > 0) {
-            context += '\n## 近期记忆\n';
+            context += '\n## Recent Memories\n';
             minis.slice(0, 5).forEach((c, i) => {
-                context += `${i + 1}. ${c.summary} (相关度: ${c.score.toFixed(2)})\n`;
+                context += `${i + 1}. ${c.summary} (relevance: ${c.score.toFixed(2)})\n`;
             });
         }
 
         if (micros.length > 0 && macros.length === 0 && minis.length === 0) {
             // 仅当没有高层卡片时才展示 Micro
-            context += '\n## 记忆片段\n';
+            context += '\n## Memory Fragments\n';
             micros.slice(0, 5).forEach((c, i) => {
-                context += `${i + 1}. ${c.summary} (相关度: ${c.score.toFixed(2)})\n`;
+                context += `${i + 1}. ${c.summary} (relevance: ${c.score.toFixed(2)})\n`;
             });
         }
 
         if (context) {
-            this.logger.info(`分层检索: ${macros.length} Macro + ${minis.length} Mini + ${micros.length} Micro`);
+            this.logger.info(`Hierarchical retrieval: ${macros.length} Macro + ${minis.length} Mini + ${micros.length} Micro`);
         }
 
         return context;
@@ -515,10 +515,10 @@ export class CardManager extends EventEmitter {
                     // 查询成功说明维度匹配
                 } catch (dimErr: any) {
                     if (String(dimErr).includes('Dimension mismatch')) {
-                        this.logger.warn(`卡片向量表维度不匹配，重建为 ${configDim} 维`);
+                        this.logger.warn(`Card vector table dimension mismatch, rebuilding to ${configDim} dimensions`);
                         this.db.exec('DROP TABLE cards_vec');
                         this.db.exec(`CREATE VIRTUAL TABLE cards_vec USING vec0(embedding float[${configDim}] distance_metric=cosine)`);
-                        this.logger.info(`卡片向量表已重建 (维度: ${configDim})`);
+                        this.logger.info(`Card vector table rebuilt (dimensions: ${configDim})`);
                     }
                 }
                 return;
@@ -526,9 +526,9 @@ export class CardManager extends EventEmitter {
 
             // 表不存在，创建
             this.db.exec(`CREATE VIRTUAL TABLE cards_vec USING vec0(embedding float[${configDim}] distance_metric=cosine)`);
-            this.logger.info(`卡片向量表已创建 (维度: ${configDim})`);
+            this.logger.info(`Card vector table created (dimensions: ${configDim})`);
         } catch (error) {
-            this.logger.error('创建卡片向量表失败', { error: String(error) });
+            this.logger.error('Failed to create card vector table', { error: String(error) });
         }
     }
 
@@ -547,7 +547,7 @@ export class CardManager extends EventEmitter {
                     .run(BigInt(rowid.rowid), new Float32Array(embedding));
             }
         } catch (error) {
-            this.logger.warn('卡片向量索引失败', { cardId: card.cardId, error: String(error) });
+            this.logger.warn('Card vector indexing failed', { cardId: card.cardId, error: String(error) });
         }
     }
 
@@ -584,28 +584,28 @@ export class CardManager extends EventEmitter {
      */
     private async extractCardInfo(content: string): Promise<CardExtractionResult | null> {
         try {
-            const prompt = `你是一个记忆分析专家。请分析以下对话内容，并以 JSON 格式返回以下信息：
+            const prompt = `You are a memory analysis expert. Analyze the following conversation content and return the following information in JSON format:
 
-1. 质量评估 (每项 0-100 分)：
-   - information_density: 信息密度（内容是否包含有价值的事实、偏好或决策）
-   - actionability: 可操作性（是否可用于后续交互中的个性化）
-   - long_term_value: 长期价值（一周后是否仍有参考意义）
-   - uniqueness: 独特性（是否包含新的用户特征信息）
+1. Quality assessment (0-100 for each):
+   - information_density: How much valuable facts, preferences, or decisions the content contains
+   - actionability: Whether it can be used for personalization in future interactions
+   - long_term_value: Whether it will still be useful a week from now
+   - uniqueness: Whether it contains new user characteristic information
 
-2. 主题列表: 2-3 个最相关的主题关键词
+2. Topic list: 2-3 most relevant topic keywords
 
-3. 摘要: 一句话精炼概括核心信息，保留关键细节
+3. Summary: A one-sentence concise summary capturing the core information with key details
 
-对话内容:
+Conversation content:
 """
 ${content}
 """
 
-仅返回 JSON，不要额外文字:
+Return JSON only, no extra text:
 {
   "quality": {"information_density": 0, "actionability": 0, "long_term_value": 0, "uniqueness": 0},
-  "topics": ["主题1", "主题2"],
-  "summary": "一句话摘要"
+  "topics": ["topic1", "topic2"],
+  "summary": "one-sentence summary"
 }`;
 
             const response = await this.chatLLM.chat([
@@ -629,7 +629,7 @@ ${content}
             };
 
         } catch (error) {
-            this.logger.error('LLM 提取失败', { error: String(error) });
+            this.logger.error('LLM extraction failed', { error: String(error) });
             return null;
         }
     }

@@ -97,7 +97,7 @@ export class RouterBridge {
         this.reconnectCount = 0;
 
         if (!config.enabled) {
-            log.info('Router 未启用，跳过连接');
+            log.info('Router not enabled, skipping connection');
             return;
         }
 
@@ -144,19 +144,19 @@ export class RouterBridge {
      */
     send(msg: RouterOutboundMessage): boolean {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            log.warn('Router 未连接，无法发送消息');
+            log.warn('Router not connected, cannot send message');
             return false;
         }
 
         try {
             this.ws.send(JSON.stringify(msg));
-            log.info('出站消息已发送', {
+            log.info('Outbound message sent', {
                 platform: msg.platform_type,
                 userId: msg.platform_user_id,
             });
             return true;
         } catch (err) {
-            log.error('发送消息失败', { error: err });
+            log.error('Send message failed', { error: err });
             return false;
         }
     }
@@ -166,15 +166,15 @@ export class RouterBridge {
      */
     bind(code: string): boolean {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            log.warn('Router 未连接，无法发送绑定命令');
+            log.warn('Router not connected, cannot send bind command');
             return false;
         }
         try {
             this.ws.send(JSON.stringify({ action: 'bind', code }));
-            log.info('已发送绑定命令', { code });
+            log.info('Bind command sent', { code });
             return true;
         } catch (err) {
-            log.error('发送绑定命令失败', { error: err });
+            log.error('Send bind command failed', { error: err });
             return false;
         }
     }
@@ -272,12 +272,12 @@ export class RouterBridge {
         const { url, appId, appType, apiKey } = this.config;
 
         if (!url || !appId || !apiKey) {
-            log.warn('Router 配置不完整，跳过连接');
+            log.warn('Router config incomplete, skipping connection');
             return;
         }
 
         this.onConnectionChange?.('connecting');
-        log.info('正在连接 OpenFluxRouter...', { url, appId, appType });
+        log.info('Connecting to OpenFluxRouter...', { url, appId, appType });
 
         try {
             this.ws = new WebSocket(url, {
@@ -292,7 +292,7 @@ export class RouterBridge {
             this.ws.on('open', () => {
                 this.connected = true;
                 this.reconnectCount = 0;
-                log.info('✅ 已连接到 OpenFluxRouter');
+                log.info('Connected to OpenFluxRouter');
                 this.onConnectionChange?.('connected');
                 this.startPing();
             });
@@ -303,26 +303,26 @@ export class RouterBridge {
                     const msg = JSON.parse(raw);
 
                     if (msg.direction === 'inbound' && this.onMessage) {
-                        log.info('收到入站消息', {
+                        log.info('Received inbound message', {
                             platform: msg.platform_type,
                             userId: msg.platform_user_id,
                             contentType: msg.content_type,
                         });
                         this.onMessage(msg as RouterInboundMessage);
                     } else if (msg.action === 'bind_result') {
-                        log.info('收到绑定结果', { status: msg.status });
+                        log.info('Received bind result', { status: msg.status });
                         if (msg.status === 'matched') this.bound = true;
                         this.onBindResult?.(msg);
                     } else if (msg.action === 'connect_status') {
-                        log.info('收到连接状态推送', { bound: msg.bound });
+                        log.info('Received connection status push', { bound: msg.bound });
                         this.bound = !!msg.bound;
                         this.onConnectStatus?.(msg);
                     } else if (msg.action === 'llm_config') {
-                        log.info('收到 LLM 配置下发', { provider: msg.provider, model: msg.model });
+                        log.info('Received LLM config push', { provider: msg.provider, model: msg.model });
                         this.onLlmConfig?.(msg);
                     }
                 } catch (err) {
-                    log.error('解析 Router 消息失败', { error: err });
+                    log.error('Failed to parse Router message', { error: err });
                 }
             });
 
@@ -330,7 +330,7 @@ export class RouterBridge {
                 const wasConnected = this.connected;
                 this.connected = false;
                 this.stopPing();
-                log.info(`Router 连接关闭: code=${code} reason=${reason?.toString() || ''}`);
+                log.info(`Router connection closed: code=${code} reason=${reason?.toString() || ''}`);
 
                 if (wasConnected) {
                     this.onConnectionChange?.('disconnected');
@@ -342,7 +342,7 @@ export class RouterBridge {
             });
 
             this.ws.on('error', (err: Error) => {
-                log.error('Router 连接错误', { message: err.message });
+                log.error('Router connection error', { message: err.message });
                 // error 事件后通常会触发 close 事件，重连逻辑在 close 中处理
             });
 
@@ -351,7 +351,7 @@ export class RouterBridge {
             });
 
         } catch (err) {
-            log.error('创建 Router 连接失败', { error: err });
+            log.error('Failed to create Router connection', { error: err });
             this.onConnectionChange?.('error');
             if (!this.destroyed) {
                 this.tryReconnect();
@@ -365,7 +365,7 @@ export class RouterBridge {
         this.reconnectCount++;
         // 递增重连间隔：5s → 10s → 30s → 60s（封顶）
         const delay = Math.min(this.reconnectInterval * Math.pow(1.5, Math.min(this.reconnectCount - 1, 6)), 60000);
-        log.info(`Router 将在 ${(delay / 1000).toFixed(0)}s 后重连 (第${this.reconnectCount}次)`);
+        log.info(`Router will reconnect in ${(delay / 1000).toFixed(0)}s (attempt #${this.reconnectCount})`);
 
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;

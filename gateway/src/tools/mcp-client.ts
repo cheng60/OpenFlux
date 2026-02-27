@@ -111,11 +111,11 @@ export class McpClientManager {
     async initialize(configs: McpServerConfig[]): Promise<void> {
         const enabledConfigs = configs.filter(c => c.enabled !== false);
         if (enabledConfigs.length === 0) {
-            log.info('无已启用的 MCP Server 配置');
+            log.info('No enabled MCP Server config found');
             return;
         }
 
-        log.info(`准备连接 ${enabledConfigs.length} 个 MCP Server...`);
+        log.info(`Connecting to ${enabledConfigs.length} MCP Servers...`);
 
         // 并行连接所有 Server（单个失败不影响其他）
         const results = await Promise.allSettled(
@@ -129,18 +129,18 @@ export class McpClientManager {
             if (result.status === 'fulfilled') {
                 successCount++;
             } else {
-                log.error(`MCP Server "${config.name}" 连接失败:`, { error: result.reason?.message || result.reason });
+                log.error(`MCP Server "${config.name}" connection failed:`, { error: result.reason?.message || result.reason });
             }
         }
 
-        log.info(`MCP Server 连接完成: ${successCount}/${enabledConfigs.length} 成功`);
+        log.info(`MCP Server connection complete: ${successCount}/${enabledConfigs.length} succeeded`);
     }
 
     /**
      * 连接单个 MCP Server
      */
     private async connectServer(config: McpServerConfig): Promise<void> {
-        log.info(`连接 MCP Server: ${config.name} (${config.transport})`);
+        log.info(`Connecting MCP Server: ${config.name} (${config.transport})`);
 
         const client = new Client({
             name: `OpenFlux-${config.name}`,
@@ -151,7 +151,7 @@ export class McpClientManager {
 
         if (config.transport === 'stdio') {
             if (!config.command) {
-                throw new Error(`MCP Server "${config.name}" stdio 模式缺少 command 配置`);
+                throw new Error(`MCP Server "${config.name}" stdio mode missing command configuration`);
             }
             transport = new StdioClientTransport({
                 command: config.command,
@@ -163,27 +163,27 @@ export class McpClientManager {
             });
         } else if (config.transport === 'sse') {
             if (!config.url) {
-                throw new Error(`MCP Server "${config.name}" SSE 模式缺少 url 配置`);
+                throw new Error(`MCP Server "${config.name}" SSE mode missing url configuration`);
             }
             transport = new SSEClientTransport(new URL(config.url));
         } else {
-            throw new Error(`MCP Server "${config.name}" 不支持的传输方式: ${config.transport}`);
+            throw new Error(`MCP Server "${config.name}" unsupported transport: ${config.transport}`);
         }
 
         // 连接（带超时）
         const timeout = (config.timeout || 30) * 1000;
         const connectPromise = client.connect(transport);
         const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`连接超时 (${config.timeout || 30}s)`)), timeout)
+            setTimeout(() => reject(new Error(`Connection timeout (${config.timeout || 30}s)`)), timeout)
         );
 
         await Promise.race([connectPromise, timeoutPromise]);
-        log.info(`MCP Server "${config.name}" 已连接`);
+        log.info(`MCP Server "${config.name}" connected`);
 
         // 获取工具列表
         const toolsResult = await client.listTools();
         const mcpTools = toolsResult.tools || [];
-        log.info(`MCP Server "${config.name}" 提供 ${mcpTools.length} 个工具`);
+        log.info(`MCP Server "${config.name}" provides ${mcpTools.length} tools`);
 
         // 转换为标准 Tool 接口
         const tools: Tool[] = mcpTools.map(mcpTool => {
@@ -223,7 +223,7 @@ export class McpClientManager {
                         };
                     } catch (error) {
                         const errorMsg = error instanceof Error ? error.message : String(error);
-                        log.error(`MCP 工具 "${toolName}" 执行失败:`, { error: errorMsg });
+                        log.error(`MCP tool "${toolName}" execution failed:`, { error: errorMsg });
                         return { success: false, error: errorMsg };
                     }
                 },
@@ -237,7 +237,7 @@ export class McpClientManager {
             tools,
         });
 
-        log.info(`MCP Server "${config.name}" 工具已转换: ${tools.map(t => t.name).join(', ')}`);
+        log.info(`MCP Server "${config.name}" tools converted: ${tools.map(t => t.name).join(', ')}`);
     }
 
     /**
@@ -265,19 +265,19 @@ export class McpClientManager {
      * 关闭所有连接和子进程
      */
     async shutdown(): Promise<void> {
-        log.info(`关闭 ${this.servers.size} 个 MCP Server 连接...`);
+        log.info(`Closing ${this.servers.size} MCP Server connections...`);
 
         const shutdownPromises = Array.from(this.servers.values()).map(async (server) => {
             try {
                 await server.client.close();
-                log.info(`MCP Server "${server.name}" 已关闭`);
+                log.info(`MCP Server "${server.name}" closed`);
             } catch (error) {
-                log.warn(`MCP Server "${server.name}" 关闭时出错:`, { error });
+                log.warn(`MCP Server "${server.name}" error during close:`, { error });
             }
         });
 
         await Promise.allSettled(shutdownPromises);
         this.servers.clear();
-        log.info('所有 MCP Server 连接已关闭');
+        log.info('All MCP Server connections closed');
     }
 }

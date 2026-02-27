@@ -60,62 +60,62 @@ export function createEmailTool(opts: EmailToolOptions = {}): AnyTool {
 
     return {
         name: 'email',
-        description: `邮件工具。支持的动作: ${EMAIL_ACTIONS.join(', ')}。使用前需通过 config 动作设置 SMTP/IMAP 连接信息。`,
+        description: `Email tool. Supported actions: ${EMAIL_ACTIONS.join(', ')}. Use config action to set SMTP/IMAP connection info before use.`,
         parameters: {
             action: {
                 type: 'string',
-                description: `操作类型: ${EMAIL_ACTIONS.join('/')}`,
+                description: `Action type: ${EMAIL_ACTIONS.join('/')}`,
                 required: true,
                 enum: [...EMAIL_ACTIONS],
             },
             to: {
                 type: 'string',
-                description: 'send 动作：收件人地址（多个用逗号分隔）',
+                description: 'send action: Recipient address (multiple separated by commas)',
             },
             cc: {
                 type: 'string',
-                description: 'send 动作：抄送地址',
+                description: 'send action: CC address',
             },
             subject: {
                 type: 'string',
-                description: 'send 动作/search 动作：邮件主题',
+                description: 'send/search action: Email subject',
             },
             body: {
                 type: 'string',
-                description: 'send 动作：邮件正文',
+                description: 'send action: Email body',
             },
             html: {
                 type: 'boolean',
-                description: 'send 动作：正文是否为 HTML 格式',
+                description: 'send action: Whether body is HTML format',
                 default: false,
             },
             attachments: {
                 type: 'string',
-                description: 'send 动作：附件文件路径（多个用逗号分隔）',
+                description: 'send action: Attachment file paths (multiple separated by commas)',
             },
             count: {
                 type: 'number',
-                description: 'read 动作：读取邮件数量（默认 10）',
+                description: 'read action: Number of emails to read (default 10)',
             },
             folder: {
                 type: 'string',
-                description: 'read/search 动作：邮件文件夹（默认 INBOX）',
+                description: 'read/search action: Email folder (default INBOX)',
             },
             query: {
                 type: 'string',
-                description: 'search 动作：搜索关键词',
+                description: 'search action: Search keyword',
             },
             from: {
                 type: 'string',
-                description: 'search 动作：发件人过滤',
+                description: 'search action: Sender filter',
             },
             // config 参数
-            smtpHost: { type: 'string', description: 'config 动作：SMTP 主机' },
-            smtpPort: { type: 'number', description: 'config 动作：SMTP 端口' },
-            imapHost: { type: 'string', description: 'config 动作：IMAP 主机' },
-            imapPort: { type: 'number', description: 'config 动作：IMAP 端口' },
-            user: { type: 'string', description: 'config 动作：邮箱地址' },
-            password: { type: 'string', description: 'config 动作：密码/授权码' },
+            smtpHost: { type: 'string', description: 'config action: SMTP host' },
+            smtpPort: { type: 'number', description: 'config action: SMTP port' },
+            imapHost: { type: 'string', description: 'config action: IMAP host' },
+            imapPort: { type: 'number', description: 'config action: IMAP port' },
+            user: { type: 'string', description: 'config action: Email address' },
+            password: { type: 'string', description: 'config action: Password/auth code' },
         },
 
         execute: async (args: Record<string, unknown>): Promise<ToolResult> => {
@@ -143,12 +143,12 @@ export function createEmailTool(opts: EmailToolOptions = {}): AnyTool {
                     return jsonResult({
                         updated,
                         config: {
-                            smtpHost: config.smtpHost || '(未设置)',
+                            smtpHost: config.smtpHost || '(not set)',
                             smtpPort: config.smtpPort,
-                            imapHost: config.imapHost || '(未设置)',
+                            imapHost: config.imapHost || '(not set)',
                             imapPort: config.imapPort,
-                            user: config.user || '(未设置)',
-                            password: config.password ? '******' : '(未设置)',
+                            user: config.user || '(not set)',
+                            password: config.password ? '******' : '(not set)',
                             tls: config.tls,
                         },
                     });
@@ -157,18 +157,18 @@ export function createEmailTool(opts: EmailToolOptions = {}): AnyTool {
                 // 发送邮件（通过 nodemailer）
                 case 'send': {
                     if (!config.smtpHost || !config.user || !config.password) {
-                        return errorResult('邮箱未配置，请先使用 config 动作设置 smtpHost、user、password');
+                        return errorResult('Email not configured. Please use config action to set smtpHost, user, password first.');
                     }
 
                     const to = readStringParam(args, 'to');
-                    const subject = readStringParam(args, 'subject') || '(无主题)';
+                    const subject = readStringParam(args, 'subject') || '(No Subject)';
                     const body = readStringParam(args, 'body') || '';
                     const cc = readStringParam(args, 'cc');
                     const isHtml = readBooleanParam(args, 'html') || false;
                     const attachmentPaths = readStringParam(args, 'attachments');
 
                     if (!to) {
-                        return errorResult('缺少收件人地址（to 参数）');
+                        return errorResult('Missing recipient address (to parameter)');
                     }
 
                     try {
@@ -221,14 +221,14 @@ export function createEmailTool(opts: EmailToolOptions = {}): AnyTool {
                             attachmentCount: attachments.length,
                         });
                     } catch (error: any) {
-                        return errorResult(`发送邮件失败: ${error.message}`);
+                        return errorResult(`Failed to send email: ${error.message}`);
                     }
                 }
 
                 // 读取收件箱（通过 IMAP）
                 case 'read': {
                     if (!config.imapHost || !config.user || !config.password) {
-                        return errorResult('IMAP 未配置，请先使用 config 动作设置 imapHost、user、password');
+                        return errorResult('IMAP not configured. Please use config action to set imapHost, user, password first.');
                     }
 
                     const count = readNumberParam(args, 'count') || 10;
@@ -314,14 +314,14 @@ export function createEmailTool(opts: EmailToolOptions = {}): AnyTool {
                             emails: emails.reverse(), // 最新的在前
                         });
                     } catch (error: any) {
-                        return errorResult(`读取邮件失败: ${error.message}`);
+                        return errorResult(`Failed to read emails: ${error.message}`);
                     }
                 }
 
                 // 搜索邮件
                 case 'search': {
                     if (!config.imapHost || !config.user || !config.password) {
-                        return errorResult('IMAP 未配置，请先使用 config 动作设置 imapHost、user、password');
+                        return errorResult('IMAP not configured. Please use config action to set imapHost, user, password first.');
                     }
 
                     const query = readStringParam(args, 'query');
@@ -331,7 +331,7 @@ export function createEmailTool(opts: EmailToolOptions = {}): AnyTool {
                     const count = readNumberParam(args, 'count') || 20;
 
                     if (!query && !from && !subject) {
-                        return errorResult('搜索需要至少一个条件：query、from 或 subject');
+                        return errorResult('Search requires at least one condition: query, from, or subject');
                     }
 
                     try {
@@ -417,12 +417,12 @@ export function createEmailTool(opts: EmailToolOptions = {}): AnyTool {
                             emails: emails.reverse(),
                         });
                     } catch (error: any) {
-                        return errorResult(`搜索邮件失败: ${error.message}`);
+                        return errorResult(`Failed to search emails: ${error.message}`);
                     }
                 }
 
                 default:
-                    return errorResult(`未知动作: ${action}`);
+                    return errorResult(`Unknown action: ${action}`);
             }
         },
     };

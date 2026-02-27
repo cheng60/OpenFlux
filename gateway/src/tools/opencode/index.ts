@@ -74,7 +74,7 @@ export function createOpenCodeTool(opts: OpenCodeToolOptions = {}): AnyTool {
 
             const timer = setTimeout(() => {
                 proc.kill();
-                resolve({ stdout, stderr: stderr + '\n[超时]', exitCode: -1 });
+                resolve({ stdout, stderr: stderr + '\n[Timeout]', exitCode: -1 });
             }, timeout);
 
             proc.on('close', (code) => {
@@ -91,33 +91,33 @@ export function createOpenCodeTool(opts: OpenCodeToolOptions = {}): AnyTool {
 
     return {
         name: 'opencode',
-        description: `OpenCode 编码工具。支持的动作: ${OPENCODE_ACTIONS.join(', ')}`,
+        description: `OpenCode coding tool. Supported actions: ${OPENCODE_ACTIONS.join(', ')}`,
         parameters: {
             action: {
                 type: 'string',
-                description: `操作类型: ${OPENCODE_ACTIONS.join('/')}`,
+                description: `Action type: ${OPENCODE_ACTIONS.join('/')}`,
                 required: true,
                 enum: [...OPENCODE_ACTIONS],
             },
             prompt: {
                 type: 'string',
-                description: '编码任务描述或问题',
+                description: 'Coding task description or question',
             },
             file: {
                 type: 'string',
-                description: '目标文件路径',
+                description: 'Target file path',
             },
             code: {
                 type: 'string',
-                description: '代码内容',
+                description: 'Code content',
             },
             cwd: {
                 type: 'string',
-                description: '工作目录',
+                description: 'Working directory',
             },
             autoApprove: {
                 type: 'boolean',
-                description: '是否自动批准操作',
+                description: 'Whether to auto-approve operations',
                 default: false,
             },
         },
@@ -146,7 +146,7 @@ export function createOpenCodeTool(opts: OpenCodeToolOptions = {}): AnyTool {
                         }
                         return jsonResult({
                             available: false,
-                            error: result.stderr || 'OpenCode 未安装或不可用',
+                            error: result.stderr || 'OpenCode not installed or unavailable',
                         });
                     } catch (error: any) {
                         return jsonResult({
@@ -192,14 +192,14 @@ export function createOpenCodeTool(opts: OpenCodeToolOptions = {}): AnyTool {
                             ...(generatedFiles?.length ? { generatedFiles } : {}),
                         });
                     } catch (error: any) {
-                        return errorResult(`执行失败: ${error.message}`);
+                        return errorResult(`Execution failed: ${error.message}`);
                     }
                 }
 
                 // 修复代码错误
                 case 'fix': {
                     const file = readStringParam(args, 'file', { required: true, label: 'file' });
-                    const prompt = readStringParam(args, 'prompt') || '修复代码中的错误';
+                    const prompt = readStringParam(args, 'prompt') || 'Fix errors in the code';
                     const cmdArgs = ['fix', file, prompt];
                     if (shouldAutoApprove) {
                         cmdArgs.unshift('--yes');
@@ -215,7 +215,7 @@ export function createOpenCodeTool(opts: OpenCodeToolOptions = {}): AnyTool {
                             success: result.exitCode === 0,
                         });
                     } catch (error: any) {
-                        return errorResult(`修复失败: ${error.message}`);
+                        return errorResult(`Fix failed: ${error.message}`);
                     }
                 }
 
@@ -224,7 +224,7 @@ export function createOpenCodeTool(opts: OpenCodeToolOptions = {}): AnyTool {
                     const file = readStringParam(args, 'file');
                     const code = readStringParam(args, 'code');
                     if (!file && !code) {
-                        return errorResult('需要提供 file 或 code 参数');
+                        return errorResult('Either file or code parameter is required');
                     }
                     const cmdArgs = ['explain'];
                     if (file) {
@@ -238,14 +238,14 @@ export function createOpenCodeTool(opts: OpenCodeToolOptions = {}): AnyTool {
                             exitCode: result.exitCode,
                         });
                     } catch (error: any) {
-                        return errorResult(`解释失败: ${error.message}`);
+                        return errorResult(`Explanation failed: ${error.message}`);
                     }
                 }
 
                 // 重构代码
                 case 'refactor': {
                     const file = readStringParam(args, 'file', { required: true, label: 'file' });
-                    const prompt = readStringParam(args, 'prompt') || '优化和重构代码';
+                    const prompt = readStringParam(args, 'prompt') || 'Optimize and refactor code';
                     const cmdArgs = ['refactor', file, prompt];
                     if (shouldAutoApprove) {
                         cmdArgs.unshift('--yes');
@@ -261,12 +261,12 @@ export function createOpenCodeTool(opts: OpenCodeToolOptions = {}): AnyTool {
                             success: result.exitCode === 0,
                         });
                     } catch (error: any) {
-                        return errorResult(`重构失败: ${error.message}`);
+                        return errorResult(`Refactoring failed: ${error.message}`);
                     }
                 }
 
                 default:
-                    return errorResult(`未知动作: ${action}`);
+                    return errorResult(`Unknown action: ${action}`);
             }
         },
     };

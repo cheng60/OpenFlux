@@ -35,44 +35,44 @@ export function createWorkflowTool(opts: WorkflowToolOptions): AnyTool {
     return {
         name: 'workflow',
         description: [
-            '执行、管理结构化工作流程。包括预置和自定义工作流。',
+            'Execute and manage structured workflows. Includes preset and custom workflows.',
             '',
-            '动作:',
-            '  list    — 列出所有可用工作流（包含预置和自定义）',
-            '  execute — 执行指定工作流（需提供 workflowId 和 params）',
-            '  status  — 查询某次运行的详细结果（需提供 runId）',
-            '  save    — 保存自定义工作流模板（需提供 template）',
-            '  delete  — 删除自定义工作流（需提供 workflowId）',
+            'Actions:',
+            '  list    — List all available workflows (preset and custom)',
+            '  execute — Execute a workflow (requires workflowId and params)',
+            '  status  — Query detailed results of a run (requires runId)',
+            '  save    — Save a custom workflow template (requires template)',
+            '  delete  — Delete a custom workflow (requires workflowId)',
             '',
-            '⚠️ 匹配规则: 通过理解用户意图（intent）来判断是否使用工作流，而非关键词精确匹配。',
-            '例如用户说"帮我学一下XXX的分析方法"→ 匹配 learn-skill 的意图"永久掌握某领域能力"',
+            '⚠️ Matching rule: Match workflows by understanding user intent, not exact keyword matching.',
+            'For example, user says "help me learn XXX analysis methods" → matches learn-skill intent "permanently master a domain skill"',
         ].join('\n'),
 
         parameters: {
             action: {
                 type: 'string',
-                description: '动作: list | execute | status | save | delete',
+                description: 'Action: list | execute | status | save | delete',
                 required: true,
                 enum: [...WORKFLOW_ACTIONS],
             },
             workflowId: {
                 type: 'string',
-                description: '工作流 ID（execute/delete 时必填）',
+                description: 'Workflow ID (required for execute/delete)',
                 required: false,
             },
             params: {
                 type: 'object',
-                description: '工作流参数（execute 时传入，JSON 对象）',
+                description: 'Workflow parameters (for execute, JSON object)',
                 required: false,
             },
             runId: {
                 type: 'string',
-                description: '运行 ID（status 时必填）',
+                description: 'Run ID (required for status)',
                 required: false,
             },
             template: {
                 type: 'object',
-                description: '工作流模板定义（save 时必填，包含 id/name/description/triggers/parameters/steps）',
+                description: 'Workflow template definition (required for save, includes id/name/description/triggers/parameters/steps)',
                 required: false,
             },
         },
@@ -92,7 +92,7 @@ export function createWorkflowTool(opts: WorkflowToolOptions): AnyTool {
                 case 'delete':
                     return handleDelete(engine, args);
                 default:
-                    return errorResult(`未知动作: ${action}`);
+                    return errorResult(`Unknown action: ${action}`);
             }
         },
     };
@@ -136,7 +136,7 @@ function handleList(engine: WorkflowEngine): ToolResult {
 async function handleExecute(engine: WorkflowEngine, args: Record<string, unknown>): Promise<ToolResult> {
     const workflowId = readStringParam(args, 'workflowId');
     if (!workflowId) {
-        return errorResult('缺少 workflowId 参数。请先使用 list 动作查看可用工作流。');
+        return errorResult('Missing workflowId parameter. Use the list action first to see available workflows.');
     }
 
     // 查找模板：先查预置，再查自定义
@@ -145,7 +145,7 @@ async function handleExecute(engine: WorkflowEngine, args: Record<string, unknow
         template = engine.getCustomTemplate(workflowId);
     }
     if (!template) {
-        return errorResult(`未找到工作流: ${workflowId}。请使用 list 动作查看可用工作流。`);
+        return errorResult(`Workflow not found: ${workflowId}. Use the list action to see available workflows.`);
     }
 
     // 解析参数
@@ -156,7 +156,7 @@ async function handleExecute(engine: WorkflowEngine, args: Record<string, unknow
         return jsonResult(formatRunResult(run));
     } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        return errorResult(`工作流执行失败: ${msg}`);
+        return errorResult(`Workflow execution failed: ${msg}`);
     }
 }
 
@@ -164,12 +164,12 @@ async function handleExecute(engine: WorkflowEngine, args: Record<string, unknow
 function handleStatus(engine: WorkflowEngine, args: Record<string, unknown>): ToolResult {
     const runId = readStringParam(args, 'runId');
     if (!runId) {
-        return errorResult('缺少 runId 参数');
+        return errorResult('Missing runId parameter');
     }
 
     const run = engine.getRun(runId);
     if (!run) {
-        return errorResult(`未找到运行实例: ${runId}`);
+        return errorResult(`Run instance not found: ${runId}`);
     }
 
     return jsonResult(formatRunResult(run));
@@ -179,31 +179,31 @@ function handleStatus(engine: WorkflowEngine, args: Record<string, unknown>): To
 function handleSave(engine: WorkflowEngine, args: Record<string, unknown>): ToolResult {
     const template = args.template as WorkflowTemplate | undefined;
     if (!template) {
-        return errorResult('缺少 template 参数。请提供完整的工作流模板定义（包含 id, name, description, triggers, parameters, steps）。');
+        return errorResult('Missing template parameter. Please provide a complete workflow template definition (including id, name, description, triggers, parameters, steps).');
     }
 
     // 基本校验
     if (!template.id || typeof template.id !== 'string') {
-        return errorResult('模板缺少 id 字段（字符串）');
+        return errorResult('Template missing id field (string)');
     }
     if (!template.name || typeof template.name !== 'string') {
-        return errorResult('模板缺少 name 字段（字符串）');
+        return errorResult('Template missing name field (string)');
     }
     if (!template.steps || !Array.isArray(template.steps) || template.steps.length === 0) {
-        return errorResult('模板缺少 steps 字段（非空数组）');
+        return errorResult('Template missing steps field (non-empty array)');
     }
 
     // 校验每个步骤
     for (const step of template.steps) {
         if (!step.id || !step.name) {
-            return errorResult(`步骤缺少 id 或 name 字段`);
+            return errorResult(`Step missing id or name field`);
         }
         const stepType = step.type || 'tool';
         if (stepType === 'tool' && !step.tool) {
-            return errorResult(`步骤 "${step.name}" 类型为 tool 但缺少 tool 字段`);
+            return errorResult(`Step "${step.name}" type is tool but missing tool field`);
         }
         if (stepType === 'llm' && !step.prompt) {
-            return errorResult(`步骤 "${step.name}" 类型为 llm 但缺少 prompt 字段`);
+            return errorResult(`Step "${step.name}" type is llm but missing prompt field`);
         }
     }
 
@@ -214,21 +214,21 @@ function handleSave(engine: WorkflowEngine, args: Record<string, unknown>): Tool
 
     // 检查是否与预置工作流冲突
     if (getPresetWorkflow(template.id)) {
-        return errorResult(`不能覆盖预置工作流: ${template.id}。请使用不同的 id。`);
+        return errorResult(`Cannot overwrite preset workflow: ${template.id}. Please use a different id.`);
     }
 
     try {
         engine.registerTemplate(template);
         return jsonResult({
             success: true,
-            message: `工作流 "${template.name}" (${template.id}) 已保存，包含 ${template.steps.length} 个步骤。下次可直接通过 execute 动作调用。`,
+            message: `Workflow "${template.name}" (${template.id}) saved with ${template.steps.length} steps. You can call it via execute action next time.`,
             workflowId: template.id,
             stepsCount: template.steps.length,
             stepTypes: template.steps.map(s => ({ name: s.name, type: s.type || 'tool' })),
         });
     } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        return errorResult(`保存工作流失败: ${msg}`);
+        return errorResult(`Failed to save workflow: ${msg}`);
     }
 }
 
@@ -236,22 +236,22 @@ function handleSave(engine: WorkflowEngine, args: Record<string, unknown>): Tool
 function handleDelete(engine: WorkflowEngine, args: Record<string, unknown>): ToolResult {
     const workflowId = readStringParam(args, 'workflowId');
     if (!workflowId) {
-        return errorResult('缺少 workflowId 参数。请指定要删除的工作流 ID。');
+        return errorResult('Missing workflowId parameter. Please specify the workflow ID to delete.');
     }
 
     // 不允许删除预置工作流
     if (getPresetWorkflow(workflowId)) {
-        return errorResult(`不能删除预置工作流: ${workflowId}`);
+        return errorResult(`Cannot delete preset workflow: ${workflowId}`);
     }
 
     const deleted = engine.deleteTemplate(workflowId);
     if (deleted) {
         return jsonResult({
             success: true,
-            message: `工作流 "${workflowId}" 已删除。`,
+            message: `Workflow "${workflowId}" deleted.`,
         });
     } else {
-        return errorResult(`未找到自定义工作流: ${workflowId}`);
+        return errorResult(`Custom workflow not found: ${workflowId}`);
     }
 }
 
@@ -263,7 +263,7 @@ function handleDelete(engine: WorkflowEngine, args: Record<string, unknown>): To
 function formatRunResult(run: WorkflowRun): Record<string, unknown> {
     const duration = run.completedAt
         ? `${((run.completedAt - run.startedAt) / 1000).toFixed(1)}s`
-        : '进行中';
+        : 'in progress';
 
     return {
         runId: run.id,
@@ -292,17 +292,17 @@ function generateSummary(run: WorkflowRun): string {
     const skipped = run.steps.filter(s => s.status === 'skipped').length;
 
     const statusText = {
-        running: '执行中',
-        completed: '✅ 已完成',
-        failed: '❌ 已失败',
-        cancelled: '已取消',
+        running: 'Running',
+        completed: '✅ Completed',
+        failed: '❌ Failed',
+        cancelled: 'Cancelled',
     }[run.status];
 
-    let summary = `工作流"${run.templateName}" ${statusText}`;
-    summary += ` — ${completed}/${total} 步完成`;
-    if (failed > 0) summary += `, ${failed} 步失败`;
-    if (skipped > 0) summary += `, ${skipped} 步跳过`;
-    if (run.error) summary += `\n失败原因: ${run.error}`;
+    let summary = `Workflow "${run.templateName}" ${statusText}`;
+    summary += ` — ${completed}/${total} steps completed`;
+    if (failed > 0) summary += `, ${failed} steps failed`;
+    if (skipped > 0) summary += `, ${skipped} steps skipped`;
+    if (run.error) summary += `\nFailure reason: ${run.error}`;
 
     return summary;
 }
@@ -312,7 +312,7 @@ function truncate(data: unknown, maxLen: number = 300): unknown {
     if (data === undefined || data === null) return data;
     const str = typeof data === 'string' ? data : JSON.stringify(data);
     if (str.length > maxLen) {
-        return str.slice(0, maxLen) + '...(截断)';
+        return str.slice(0, maxLen) + '...(truncated)';
     }
     return data;
 }

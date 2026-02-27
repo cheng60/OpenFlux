@@ -27,7 +27,7 @@ export class WorkflowStore {
     private ensureDir(): void {
         if (!existsSync(this.storePath)) {
             mkdirSync(this.storePath, { recursive: true });
-            log.info(`创建工作流存储目录: ${this.storePath}`);
+            log.info(`Created workflow store directory: ${this.storePath}`);
         }
     }
 
@@ -47,11 +47,11 @@ export class WorkflowStore {
         const filePath = this.getFilePath(template.id);
         try {
             writeFileSync(filePath, JSON.stringify(template, null, 2), 'utf-8');
-            log.info(`工作流模板已保存: ${template.id} (${template.name})`);
+            log.info(`Workflow template saved: ${template.id} (${template.name})`);
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
-            log.error(`保存工作流模板失败: ${template.id}`, { error: msg });
-            throw new Error(`保存工作流模板失败: ${msg}`);
+            log.error(`Failed to save workflow template: ${template.id}`, { error: msg });
+            throw new Error(`Failed to save workflow template: ${msg}`);
         }
     }
 
@@ -67,7 +67,7 @@ export class WorkflowStore {
             return JSON.parse(content) as WorkflowTemplate;
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
-            log.error(`加载工作流模板失败: ${id}`, { error: msg });
+            log.error(`Failed to load workflow template: ${id}`, { error: msg });
             return null;
         }
     }
@@ -87,18 +87,18 @@ export class WorkflowStore {
                     if (template.id && template.name && template.steps) {
                         templates.push(template);
                     } else {
-                        log.warn(`跳过无效的工作流模板文件: ${file}`);
+                        log.warn(`Skipped invalid workflow template file: ${file}`);
                     }
                 } catch {
-                    log.warn(`解析工作流模板文件失败: ${file}`);
+                    log.warn(`Failed to parse workflow template file: ${file}`);
                 }
             }
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
-            log.error('加载工作流模板列表失败', { error: msg });
+            log.error('Failed to load workflow template list', { error: msg });
         }
 
-        log.info(`加载了 ${templates.length} 个自定义工作流模板`);
+        log.info(`Loaded ${templates.length} custom workflow templates`);
         return templates;
     }
 
@@ -111,11 +111,11 @@ export class WorkflowStore {
 
         try {
             unlinkSync(filePath);
-            log.info(`工作流模板已删除: ${id}`);
+            log.info(`Workflow template deleted: ${id}`);
             return true;
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
-            log.error(`删除工作流模板失败: ${id}`, { error: msg });
+            log.error(`Failed to delete workflow template: ${id}`, { error: msg });
             return false;
         }
     }

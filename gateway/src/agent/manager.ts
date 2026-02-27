@@ -96,7 +96,7 @@ export class AgentManager {
         this.collaborationManager = getCollaborationManager();
         this.initCollaboration();
 
-        log.info(`AgentManager 初始化: ${this.agentsConfig.list.length} 个 Agent`);
+        log.info(`AgentManager initialized: ${this.agentsConfig.list.length} Agents`);
         for (const agent of this.agentsConfig.list) {
             log.info(`  - ${agent.id}: ${agent.name || '(unnamed)'}` +
                 (agent.default ? ' [default]' : '') +
@@ -158,7 +158,7 @@ export class AgentManager {
         this.options.defaultLLM = orchestrationLLM;
         this.routerLLM = orchestrationLLM;
         this.contextCache.clear();
-        log.info('LLM Provider 已热更新，Agent 上下文缓存已清除');
+        log.info('LLM Provider hot-updated, Agent context cache cleared');
     }
 
     /**
@@ -218,10 +218,10 @@ export class AgentManager {
         // 2. 获取 Agent 上下文
         const ctx = this.getOrCreateContext(resolvedAgentId);
         if (!ctx) {
-            throw new Error(`Agent 不存在: ${resolvedAgentId}`);
+            throw new Error(`Agent does not exist: ${resolvedAgentId}`);
         }
 
-        log.info(`执行任务`, {
+        log.info(`Executing task`, {
             agentId: resolvedAgentId,
             input: input.slice(0, 100),
             sessionId,
@@ -238,7 +238,7 @@ export class AgentManager {
                     content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
                 }))
                 .filter(msg => msg.content && msg.content.trim().length > 0); // 过滤空消息，防止 LLM API 400
-            log.info('加载会话历史', { sessionId, messageCount: history.length });
+            log.info('Loading session history', { sessionId, messageCount: history.length });
         }
 
         // 4. 保存用户消息（含附件元数据，以便切换会话后恢复显示）
@@ -285,7 +285,7 @@ export class AgentManager {
         let contentParts: LLMContentPart[] | undefined;
 
         if (attachments?.length) {
-            log.info('处理用户附件', { count: attachments.length, files: attachments.map(a => a.name) });
+            log.info('Processing user attachments', { count: attachments.length, files: attachments.map(a => a.name) });
             onProgress?.({
                 type: 'tool_start',
                 description: `正在读取 ${attachments.length} 个附件...`,
@@ -309,10 +309,10 @@ export class AgentManager {
                     type: 'text',
                     text: enrichedInput,
                 });
-                log.info('构建多模态消息', { imageCount: enriched.images.length });
+                log.info('Building multimodal message', { imageCount: enriched.images.length });
             }
 
-            log.info('附件预处理完成', { enrichedLength: enrichedInput.length, hasImages: !!contentParts });
+            log.info('Attachment preprocessing done', { enrichedLength: enrichedInput.length, hasImages: !!contentParts });
         }
 
         // 6. 运行 Agent Loop
@@ -380,7 +380,7 @@ export class AgentManager {
             this.options.sessions.addMessage(sessionId, { role: 'assistant', content: result.output });
         }
 
-        log.info('任务完成', {
+        log.info('Task completed', {
             agentId: resolvedAgentId,
             iterations: result.iterations,
             toolCalls: result.toolCalls.length,
@@ -404,10 +404,10 @@ export class AgentManager {
     ): Promise<{ output: string; agentId: string }> {
         const ctx = this.getOrCreateContext(agentId);
         if (!ctx) {
-            throw new Error(`Agent 不存在: ${agentId}`);
+            throw new Error(`Agent does not exist: ${agentId}`);
         }
 
-        log.info(`协作执行`, { agentId, task: task.slice(0, 100) });
+        log.info(`Collaboration execution`, { agentId, task: task.slice(0, 100) });
 
         // 加载历史（如有）
         let history: Array<{ role: 'user' | 'assistant'; content: string }> = [];
@@ -447,7 +447,7 @@ export class AgentManager {
             skills: this.agentsConfig.skills as any,
         });
 
-        log.info('协作执行完成', {
+        log.info('Collaboration execution completed', {
             agentId,
             iterations: result.iterations,
             toolCalls: result.toolCalls.length,
@@ -475,7 +475,7 @@ export class AgentManager {
         // 注入 Agent 列表查询
         this.collaborationManager.setAgentProvider(() => this.getAgentIds());
 
-        log.info('协作管理器已初始化');
+        log.info('Collaboration manager initialized');
     }
 
     /**
@@ -518,7 +518,7 @@ export class AgentManager {
                 : llm,
             tools: subAgentTools,
             onComplete: (result) => {
-                log.info(`SubAgent 完成: ${result.id}`, { status: result.status });
+                log.info(`SubAgent completed: ${result.id}`, { status: result.status });
             },
             onProgress: (event) => {
                 // 转发 SubAgent 进度到主会话
@@ -550,12 +550,12 @@ export class AgentManager {
         tools.register(sessionsSendTool);
 
         // 创建 Runner
-        const runner = createAgentLoopRunner({ llm, tools, memoryManager: this.options.memoryManager });
+        const runner = createAgentLoopRunner({ llm, tools, memoryManager: this.options.memoryManager, language: this.options.config.language });
 
         const ctx: AgentContext = { config: agentConfig, llm, tools, runner };
         this.contextCache.set(agentId, ctx);
 
-        log.info(`Agent 上下文已创建: ${agentId}`, {
+        log.info(`Agent context created: ${agentId}`, {
             model: llm.getConfig().model,
             tools: tools.getToolNames(),
         });

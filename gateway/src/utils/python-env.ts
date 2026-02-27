@@ -89,18 +89,18 @@ export function logPythonEnvStatus(): void {
     const info = getPythonEnvInfo();
     switch (info.status) {
         case 'ready':
-            log.info('Python 环境就绪', {
+            log.info('Python environment ready', {
                 basePath: info.basePath,
                 venvPath: info.venvPath,
             });
             break;
         case 'broken':
-            log.warn('Python 基础包存在但 venv 缺失，部分功能不可用', {
+            log.warn('Python base package exists but venv missing, some features unavailable', {
                 basePath: info.basePath,
             });
             break;
         case 'not_installed':
-            log.warn('Python 环境未安装，Python 脚本执行功能不可用');
+            log.warn('Python not installed, Python script execution unavailable');
             break;
     }
 }

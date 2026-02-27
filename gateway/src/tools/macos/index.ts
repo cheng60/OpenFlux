@@ -89,36 +89,36 @@ app: 应用管理（open/list/quit）`,
         parameters: {
             action: {
                 type: 'string',
-                description: `操作类型: ${MACOS_ACTIONS.join('/')}`,
+                description: `Action type: ${MACOS_ACTIONS.join('/')}`,
                 required: true,
                 enum: [...MACOS_ACTIONS],
             },
             subAction: {
                 type: 'string',
-                description: '子操作',
+                description: 'Sub-action',
             },
             text: {
                 type: 'string',
-                description: '文本内容（clipboard/write、notification 使用）',
+                description: 'Text content (for clipboard/write, notification)',
             },
             title: {
                 type: 'string',
-                description: '标题（notification、window/activate 使用）',
+                description: 'Title (for notification, window/activate)',
             },
             script: {
                 type: 'string',
-                description: 'Shell 脚本内容（shell 动作使用）',
+                description: 'Shell script content (for shell action)',
             },
             appName: {
                 type: 'string',
-                description: '应用名称（app 动作使用）',
+                description: 'Application name (for app action)',
             },
         },
 
         execute: async (args: Record<string, unknown>): Promise<ToolResult> => {
             // 平台检查
             if (platform() !== 'darwin') {
-                return errorResult('此工具仅支持 macOS 系统');
+                return errorResult('This tool is only supported on macOS');
             }
 
             const action = validateAction(args, MACOS_ACTIONS);
@@ -178,12 +178,12 @@ app: 应用管理（open/list/quit）`,
                             }
                             case 'write': {
                                 const text = readStringParam(args, 'text');
-                                if (!text) return errorResult('缺少 text 参数');
+                                if (!text) return errorResult('Missing text parameter');
                                 await execAsync(`echo -n ${JSON.stringify(text)} | pbcopy`, { timeout: 3000 });
                                 return jsonResult({ success: true, length: text.length });
                             }
                             default:
-                                return errorResult(`未知剪贴板操作: ${subAction}，支持: read/write`);
+                                return errorResult(`Unknown clipboard action: ${subAction}, supported: read/write`);
                         }
                     }
 
@@ -191,7 +191,7 @@ app: 应用管理（open/list/quit）`,
                     // 系统通知
                     // ========================
                     case 'notification': {
-                        const text = readStringParam(args, 'text') || 'OpenFlux 通知';
+                        const text = readStringParam(args, 'text') || 'OpenFlux Notification';
                         const title = readStringParam(args, 'title') || 'OpenFlux';
                         await runAppleScript(
                             `display notification "${text.replace(/"/g, '\\"')}" with title "${title.replace(/"/g, '\\"')}"`,
@@ -238,7 +238,7 @@ end tell
                                 const titleParam = readStringParam(args, 'title');
                                 const appName = readStringParam(args, 'appName');
                                 const target = appName || titleParam || '';
-                                if (!target) return errorResult('缺少 title 或 appName 参数');
+                                if (!target) return errorResult('Missing title or appName parameter');
 
                                 const script = `
 tell application "${target.replace(/"/g, '\\"')}"
@@ -251,7 +251,7 @@ end tell
 
                             case 'close': {
                                 const appName = readStringParam(args, 'appName');
-                                if (!appName) return errorResult('缺少 appName 参数');
+                                if (!appName) return errorResult('Missing appName parameter');
                                 const script = `
 tell application "${appName.replace(/"/g, '\\"')}"
     close every window
@@ -262,7 +262,7 @@ end tell
                             }
 
                             default:
-                                return errorResult(`未知窗口操作: ${subAction}，支持: list/activate/close`);
+                                return errorResult(`Unknown window action: ${subAction}, supported: list/activate/close`);
                         }
                     }
 
@@ -271,7 +271,7 @@ end tell
                     // ========================
                     case 'shell': {
                         const script = readStringParam(args, 'script');
-                        if (!script) return errorResult('缺少 script 参数');
+                        if (!script) return errorResult('Missing script parameter');
                         const result = await runShell(script, timeout);
                         return jsonResult({ success: true, output: result });
                     }
@@ -283,7 +283,7 @@ end tell
                         switch (subAction) {
                             case 'open': {
                                 const appName = readStringParam(args, 'appName');
-                                if (!appName) return errorResult('缺少 appName 参数');
+                                if (!appName) return errorResult('Missing appName parameter');
                                 await execAsync(`open -a "${appName}"`, { timeout: 5000 });
                                 return jsonResult({ success: true, opened: appName });
                             }
@@ -311,7 +311,7 @@ end tell
 
                             case 'quit': {
                                 const appName = readStringParam(args, 'appName');
-                                if (!appName) return errorResult('缺少 appName 参数');
+                                if (!appName) return errorResult('Missing appName parameter');
                                 await runAppleScript(
                                     `tell application "${appName.replace(/"/g, '\\"')}" to quit`,
                                     5000
@@ -320,15 +320,15 @@ end tell
                             }
 
                             default:
-                                return errorResult(`未知应用操作: ${subAction}，支持: open/list/quit`);
+                                return errorResult(`Unknown app action: ${subAction}, supported: open/list/quit`);
                         }
                     }
 
                     default:
-                        return errorResult(`未知动作: ${action}`);
+                        return errorResult(`Unknown action: ${action}`);
                 }
             } catch (error: any) {
-                return errorResult(`macOS 操作失败: ${error.message}`);
+                return errorResult(`macOS operation failed: ${error.message}`);
             }
         },
     };

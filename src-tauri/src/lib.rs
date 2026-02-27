@@ -36,13 +36,13 @@ pub fn run() {
                     commands::gateway::start_gateway_sidecar(&handle)
                 }).await;
                 match result {
-                    Ok(Ok(())) => eprintln!("[OpenFlux] Gateway sidecar 启动完成"),
-                    Ok(Err(e)) => eprintln!("[OpenFlux] Gateway sidecar 启动失败: {}", e),
-                    Err(e) => eprintln!("[OpenFlux] Gateway sidecar 启动任务异常: {}", e),
+                    Ok(Ok(())) => eprintln!("[OpenFlux] Gateway sidecar started"),
+                    Ok(Err(e)) => eprintln!("[OpenFlux] Gateway sidecar start failed: {}", e),
+                    Err(e) => eprintln!("[OpenFlux] Gateway sidecar task error: {}", e),
                 }
             });
 
-            eprintln!("[OpenFlux] 启动完成 v0.1.1 (gateway 异步启动中)");
+            eprintln!("[OpenFlux] Started v0.1.1 (gateway starting async)");
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -50,7 +50,7 @@ pub fn run() {
                 // 应用关闭时停止 Gateway sidecar
                 let app = window.app_handle();
                 if let Err(e) = commands::gateway::stop_gateway_sidecar(app) {
-                    eprintln!("[OpenFlux] Gateway sidecar 停止失败: {}", e);
+                    eprintln!("[OpenFlux] Gateway sidecar stop failed: {}", e);
                 }
             }
         })
@@ -71,5 +71,5 @@ pub fn run() {
             commands::system::app_relaunch,
         ])
         .run(tauri::generate_context!())
-        .expect("OpenFlux 启动失败");
+        .expect("OpenFlux failed to start");
 }

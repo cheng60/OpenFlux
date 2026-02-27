@@ -31,24 +31,24 @@ export interface SubAgentConfig {
 /**
  * SubAgent 系统提示
  */
-const SUBAGENT_SYSTEM_PROMPT = `你是一个子 Agent，专门执行主 Agent 分配的任务。
+const SUBAGENT_SYSTEM_PROMPT = `You are a SubAgent created to execute a specific task assigned by the main Agent.
 
-## 你的角色
-- 你是被 spawn 创建的子 Agent
-- 专注于完成分配给你的特定任务
-- 完成后你的输出会自动汇报给主 Agent
+## Your Role
+- You were spawned by the main Agent to handle a specific task
+- Focus solely on completing the assigned task
+- Your output will be automatically reported back to the main Agent
 
-## 工具使用规则（重要）
-- **搜索信息**：必须使用 web_search 工具，禁止用 process 执行 Python/curl 等方式搜索
-- **获取网页内容**：必须使用 web_fetch 工具，禁止用 process 执行 urllib/requests/curl 等方式抓取
-- **文件操作**：使用 filesystem 工具
-- **执行命令**：使用 process 工具（仅限真正需要执行本地程序的场景）
+## Tool Usage Rules (Important)
+- **Search for information**: MUST use web_search tool. Do NOT use process to run Python/curl for searching
+- **Fetch web content**: MUST use web_fetch tool. Do NOT use process to run urllib/requests/curl for fetching
+- **File operations**: Use the filesystem tool
+- **Execute commands**: Use the process tool (only for scenarios that truly require running local programs)
 
-## 规则
-1. 只做分配给你的任务，不做额外的事
-2. 保持输出简洁明了
-3. 如果任务无法完成，清楚说明原因
-4. 不要尝试与用户直接对话`;
+## Rules
+1. Only do the task assigned to you, nothing extra
+2. Keep your output concise and clear
+3. If the task cannot be completed, clearly explain why
+4. Do not try to communicate directly with the user`;
 
 /**
  * 创建 SubAgent 执行函数
@@ -59,17 +59,17 @@ const SUBAGENT_SYSTEM_PROMPT = `你是一个子 Agent，专门执行主 Agent �
  */
 export function createSubAgentExecutor(config: SubAgentConfig) {
     const availableTools = config.tools.getToolNames();
-    log.info(`SubAgent 可用工具: [${availableTools.join(', ')}]`);
+    log.info(`SubAgent available tools: [${availableTools.join(', ')}]`);
 
     return async (params: SpawnParams): Promise<SpawnResult> => {
         const startTime = Date.now();
-        log.info(`SubAgent 开始执行: ${params.id}`, { task: params.task.slice(0, 100) });
+        log.info(`SubAgent started: ${params.id}`, { task: params.task.slice(0, 100) });
 
         try {
             // 设置超时
             const timeoutMs = params.timeout * 1000;
             const timeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('执行超时')), timeoutMs);
+                setTimeout(() => reject(new Error('Execution timed out')), timeoutMs);
             });
 
             // 执行 Agent Loop（使用过滤后的工具注册表）
@@ -79,7 +79,7 @@ export function createSubAgentExecutor(config: SubAgentConfig) {
                 systemPrompt: SUBAGENT_SYSTEM_PROMPT,
                 maxIterations: config.maxIterations || Infinity,
                 onIteration: (iteration: number) => {
-                    log.info(`SubAgent ${params.id} 迭代 ${iteration}`);
+                    log.info(`SubAgent ${params.id} iteration ${iteration}`);
                     config.onProgress?.({
                         type: 'iteration',
                         iteration,
@@ -88,7 +88,7 @@ export function createSubAgentExecutor(config: SubAgentConfig) {
                 },
                 onToolCall: (toolCall: LLMToolCall, result: unknown) => {
                     const args = toolCall.arguments || {};
-                    log.info(`SubAgent ${params.id} 工具调用: ${toolCall.name}`, {
+                    log.info(`SubAgent ${params.id} tool call: ${toolCall.name}`, {
                         action: args.action,
                     });
                     config.onProgress?.({
@@ -112,7 +112,7 @@ export function createSubAgentExecutor(config: SubAgentConfig) {
             const result = await Promise.race([executePromise, timeoutPromise]);
 
             const duration = Date.now() - startTime;
-            log.info(`SubAgent 完成: ${params.id}`, { duration, iterations: result.iterations });
+            log.info(`SubAgent completed: ${params.id}`, { duration, iterations: result.iterations });
 
             const spawnResult: SpawnResult = {
                 id: params.id,
@@ -127,9 +127,9 @@ export function createSubAgentExecutor(config: SubAgentConfig) {
         } catch (error) {
             const duration = Date.now() - startTime;
             const errorMsg = error instanceof Error ? error.message : String(error);
-            const isTimeout = errorMsg === '执行超时';
+            const isTimeout = errorMsg === 'Execution timed out';
 
-            log.error(`SubAgent ${isTimeout ? '超时' : '失败'}: ${params.id}`, { error: errorMsg });
+            log.error(`SubAgent ${isTimeout ? 'timed out' : 'failed'}: ${params.id}`, { error: errorMsg });
 
             const spawnResult: SpawnResult = {
                 id: params.id,

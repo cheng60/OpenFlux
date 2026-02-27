@@ -45,7 +45,7 @@ function createDriver(screenshotDir: string): IDesktopDriver {
         const { MacOSDesktopDriver } = require('./macos-driver');
         return new MacOSDesktopDriver(screenshotDir);
     }
-    throw new Error(`不支持的平台: ${process.platform}，桌面控制仅支持 Windows 和 macOS`);
+    throw new Error(`Unsupported platform: ${process.platform}, desktop control supports Windows and macOS only`);
 }
 
 /**
@@ -74,112 +74,112 @@ export function createDesktopTool(opts: DesktopToolOptions = {}): AnyTool {
 
     const isMac = process.platform === 'darwin';
     const platformNote = isMac
-        ? '（macOS 平台：humanMove 降级为线性移动，record 不可用）'
+        ? ' (macOS: humanMove fallback to linear movement, record unavailable)'
         : '';
 
     return {
         name: 'desktop',
-        description: `OS 级桌面控制工具，可操作任意应用的键盘、鼠标、屏幕截图、窗口管理${platformNote}。支持动作: ${DESKTOP_ACTIONS.join(', ')}。
-keyboard 子操作: type(输入文本), key(按键/组合键), keys(连续按键)
-mouse 子操作: click(点击), doubleClick(双击), rightClick(右键), move(移动), humanMove(拟人化移动), scroll(滚轮), getPos(获取光标位置), drag(拖拽)
-screen 子操作: capture(截图保存文件), analyze(截图并交给LLM Vision分析界面内容), colorAt(获取像素颜色), getSize(获取屏幕分辨率)${isMac ? '' : ', record(录屏 start/stop/status)'}
-window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口), getView(获取窗口位置大小), setView(设置窗口位置大小)`,
+        description: `OS-level desktop control tool for keyboard, mouse, screenshots, and window management in any application${platformNote}. Supported actions: ${DESKTOP_ACTIONS.join(', ')}.
+keyboard sub-actions: type (input text), key (key/combo), keys (sequential keys)
+mouse sub-actions: click, doubleClick, rightClick, move, humanMove, scroll, getPos, drag
+screen sub-actions: capture (save screenshot), analyze (screenshot + LLM Vision analysis), colorAt (get pixel color), getSize (get screen resolution)${isMac ? '' : ', record (start/stop/status)'}
+window sub-actions: list, find, activate, getView, setView`,
 
         parameters: {
             action: {
                 type: 'string',
-                description: `操作类型: ${DESKTOP_ACTIONS.join('/')}`,
+                description: `Action type: ${DESKTOP_ACTIONS.join('/')}`,
                 required: true,
                 enum: [...DESKTOP_ACTIONS],
             },
             subAction: {
                 type: 'string',
-                description: '子操作（见工具描述中各 action 的子操作列表）',
+                description: 'Sub-action (see sub-action list for each action in tool description)',
                 required: true,
             },
             text: {
                 type: 'string',
-                description: '输入文本（keyboard/type 使用）',
+                description: 'Input text (for keyboard/type)',
             },
             key: {
                 type: 'string',
-                description: '按键名称，如 "enter", "tab", "a", "f5" 等。组合键用逗号分隔，如 "ctrl,c"（keyboard/key 使用）',
+                description: 'Key name, e.g. "enter", "tab", "a", "f5". Combine with comma, e.g. "ctrl,c" (for keyboard/key)',
             },
             keys: {
                 type: 'string',
-                description: '连续按键序列，JSON 数组格式，如 ["tab","enter"]（keyboard/keys 使用）',
+                description: 'Sequential key presses, JSON array format, e.g. ["tab","enter"] (for keyboard/keys)',
             },
             x: {
                 type: 'number',
-                description: 'X 坐标（鼠标操作、屏幕截图区域、颜色检测）',
+                description: 'X coordinate (for mouse, screenshot area, color detection)',
             },
             y: {
                 type: 'number',
-                description: 'Y 坐标（鼠标操作、屏幕截图区域、颜色检测）',
+                description: 'Y coordinate (for mouse, screenshot area, color detection)',
             },
             toX: {
                 type: 'number',
-                description: '目标 X 坐标（drag 拖拽终点）',
+                description: 'Target X coordinate (drag end point)',
             },
             toY: {
                 type: 'number',
-                description: '目标 Y 坐标（drag 拖拽终点）',
+                description: 'Target Y coordinate (drag end point)',
             },
             button: {
                 type: 'string',
-                description: '鼠标按键: left/right/middle，默认 left',
+                description: 'Mouse button: left/right/middle, default left',
             },
             scrollAmount: {
                 type: 'number',
-                description: '滚轮滚动量，正值向上，负值向下',
+                description: 'Scroll amount, positive for up, negative for down',
             },
             speed: {
                 type: 'number',
-                description: '拟人化移动速度（1-10），默认 5',
+                description: 'Human-like movement speed (1-10), default 5',
             },
             width: {
                 type: 'number',
-                description: '截图区域宽度',
+                description: 'Screenshot area width',
             },
             height: {
                 type: 'number',
-                description: '截图区域高度',
+                description: 'Screenshot area height',
             },
             savePath: {
                 type: 'string',
-                description: '截图保存路径（完整文件名，如 "C:/temp/screen.png"）',
+                description: 'Screenshot save path (full filename, e.g. "C:/temp/screen.png")',
             },
             windowTitle: {
                 type: 'string',
-                description: '目标窗口标题（模糊匹配，用于指定操作的目标窗口）',
+                description: 'Target window title (fuzzy match, for specifying target window)',
             },
             windowClass: {
                 type: 'string',
-                description: '目标窗口类名',
+                description: 'Target window class name',
             },
             windowHandle: {
                 type: 'number',
-                description: '目标窗口句柄（handle）',
+                description: 'Target window handle',
             },
             setX: {
                 type: 'number',
-                description: '设置窗口 X 位置',
+                description: 'Set window X position',
             },
             setY: {
                 type: 'number',
-                description: '设置窗口 Y 位置',
+                description: 'Set window Y position',
             },
             setWidth: {
                 type: 'number',
-                description: '设置窗口宽度',
+                description: 'Set window width',
             },
             setHeight: {
                 type: 'number',
-                description: '设置窗口高度',
+                description: 'Set window height',
             },
             prompt: {
                 type: 'string',
-                description: '截图分析的提示词（screen/analyze 使用），如 "找到登录按钮的位置"',
+                description: 'Prompt for screenshot analysis (for screen/analyze), e.g. "find the login button location"',
             },
         },
 
@@ -201,14 +201,14 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                         switch (subAction) {
                             case 'type': {
                                 const text = readStringParam(args, 'text');
-                                if (!text) return errorResult('缺少 text 参数');
+                                if (!text) return errorResult('Missing text parameter');
                                 await drv.type(text, windowTitle, windowClass, windowHandle);
                                 return jsonResult({ success: true, action: 'type', text, length: text.length });
                             }
 
                             case 'key': {
                                 const keyStr = readStringParam(args, 'key');
-                                if (!keyStr) return errorResult('缺少 key 参数');
+                                if (!keyStr) return errorResult('Missing key parameter');
                                 const keys = keyStr.split(',').map(k => k.trim());
                                 await drv.sendKey(keys, windowTitle, windowClass, windowHandle);
                                 return jsonResult({ success: true, action: 'key', key: keyStr });
@@ -216,7 +216,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
 
                             case 'keys': {
                                 const keysStr = readStringParam(args, 'keys');
-                                if (!keysStr) return errorResult('缺少 keys 参数');
+                                if (!keysStr) return errorResult('Missing keys parameter');
                                 let keysList: string[];
                                 try {
                                     keysList = JSON.parse(keysStr);
@@ -228,7 +228,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                             }
 
                             default:
-                                return errorResult(`未知键盘操作: ${subAction}，支持: type/key/keys`);
+                                return errorResult(`Unknown keyboard action: ${subAction}, supported: type/key/keys`);
                         }
                     }
 
@@ -269,7 +269,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
 
                             case 'move': {
                                 if (x === undefined || y === undefined) {
-                                    return errorResult('缺少 x 或 y 参数');
+                                    return errorResult('Missing x or y parameter');
                                 }
                                 await drv.moveTo(x, y, undefined, windowTitle, windowClass, windowHandle);
                                 return jsonResult({ success: true, action: 'move', x, y });
@@ -277,7 +277,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
 
                             case 'humanMove': {
                                 if (x === undefined || y === undefined) {
-                                    return errorResult('缺少 x 或 y 参数');
+                                    return errorResult('Missing x or y parameter');
                                 }
                                 const speed = readNumberParam(args, 'speed') ?? 5;
                                 if (drv.humanMoveTo) {
@@ -292,7 +292,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                             case 'scroll': {
                                 const amount = readNumberParam(args, 'scrollAmount');
                                 if (amount === undefined) {
-                                    return errorResult('缺少 scrollAmount 参数');
+                                    return errorResult('Missing scrollAmount parameter');
                                 }
                                 if (x !== undefined && y !== undefined) {
                                     await drv.moveTo(x, y, 50, windowTitle, windowClass, windowHandle);
@@ -308,12 +308,12 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
 
                             case 'drag': {
                                 if (x === undefined || y === undefined) {
-                                    return errorResult('缺少起始坐标 x, y');
+                                    return errorResult('Missing start coordinates x, y');
                                 }
                                 const toX = readNumberParam(args, 'toX');
                                 const toY = readNumberParam(args, 'toY');
                                 if (toX === undefined || toY === undefined) {
-                                    return errorResult('缺少目标坐标 toX, toY');
+                                    return errorResult('Missing target coordinates toX, toY');
                                 }
                                 await drv.moveTo(x, y, 100, windowTitle, windowClass, windowHandle);
                                 if (drv.mouseToggle) {
@@ -331,7 +331,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                             }
 
                             default:
-                                return errorResult(`未知鼠标操作: ${subAction}，支持: click/doubleClick/rightClick/move/humanMove/scroll/getPos/drag`);
+                                return errorResult(`Unknown mouse action: ${subAction}, supported: click/doubleClick/rightClick/move/humanMove/scroll/getPos/drag`);
                         }
                     }
 
@@ -370,7 +370,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                                 const cx = readNumberParam(args, 'x');
                                 const cy = readNumberParam(args, 'y');
                                 if (cx === undefined || cy === undefined) {
-                                    return errorResult('缺少 x 或 y 参数');
+                                    return errorResult('Missing x or y parameter');
                                 }
                                 const color = drv.colorAt(cx, cy, windowTitle, windowClass, windowHandle);
                                 return jsonResult({
@@ -406,15 +406,15 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                                 try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
 
                                 const description = prompt
-                                    ? `屏幕截图（${captureResult.width}x${captureResult.height}）。分析要求：${prompt}`
-                                    : `屏幕截图（${captureResult.width}x${captureResult.height}）。请描述界面内容，包括文字、按钮、输入框等可操作元素的位置。`;
+                                    ? `Screenshot (${captureResult.width}x${captureResult.height}). Analysis request: ${prompt}`
+                                    : `Screenshot (${captureResult.width}x${captureResult.height}). Please describe the interface content, including text, buttons, input fields, and other interactive elements with their positions.`;
 
                                 return {
                                     success: true,
                                     data: {
                                         width: captureResult.width,
                                         height: captureResult.height,
-                                        message: '截图已提交给 LLM Vision 分析',
+                                        message: 'Screenshot submitted to LLM Vision for analysis',
                                     },
                                     images: [{
                                         mimeType: 'image/png',
@@ -427,7 +427,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                             case 'record': {
                                 // 录屏功能仅 Windows 支持（依赖 captureRaw）
                                 if (!drv.captureRaw) {
-                                    return errorResult('录屏功能在当前平台不可用');
+                                    return errorResult('Screen recording is not available on the current platform');
                                 }
 
                                 const recordAction = readStringParam(args, 'text') || 'status';
@@ -439,7 +439,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                                             return jsonResult({
                                                 recording: true,
                                                 frames: recordingState.frameCount,
-                                                message: '录屏已在进行中',
+                                                message: 'Screen recording is already in progress',
                                             });
                                         }
 
@@ -469,13 +469,13 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                                             tempDir,
                                             fps,
                                             interval,
-                                            message: '录屏已开始',
+                                            message: 'Screen recording started',
                                         });
                                     }
 
                                     case 'stop': {
                                         if (!recordingState.active) {
-                                            return jsonResult({ recording: false, message: '未在录屏' });
+                                            return jsonResult({ recording: false, message: 'Not currently recording' });
                                         }
 
                                         if (recordingState.timer) {
@@ -507,8 +507,8 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                                             tempDir,
                                             videoPath,
                                             message: videoPath
-                                                ? `录屏完成，已合成视频: ${videoPath}`
-                                                : `录屏完成，${frameCount} 帧截图保存在: ${tempDir}（系统无 ffmpeg，未合成视频）`,
+                                                ? `Recording complete, video saved: ${videoPath}`
+                                                : `Recording complete, ${frameCount} frames saved in: ${tempDir} (ffmpeg not found, video not synthesized)`,
                                         });
                                     }
 
@@ -524,12 +524,12 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                                     }
 
                                     default:
-                                        return errorResult(`未知 record 操作: ${recordAction}，支持: start/stop/status`);
+                                        return errorResult(`Unknown record action: ${recordAction}, supported: start/stop/status`);
                                 }
                             }
 
                             default:
-                                return errorResult(`未知屏幕操作: ${subAction}，支持: capture/analyze/colorAt/getSize${isMac ? '' : '/record'}`);
+                                return errorResult(`Unknown screen action: ${subAction}, supported: capture/analyze/colorAt/getSize${isMac ? '' : '/record'}`);
                         }
                     }
 
@@ -552,7 +552,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
 
                             case 'find': {
                                 if (!windowTitle && !windowClass) {
-                                    return errorResult('缺少 windowTitle 或 windowClass 参数');
+                                    return errorResult('Missing windowTitle or windowClass parameter');
                                 }
                                 const matches = drv.findWindows(windowTitle, windowClass);
                                 return jsonResult({
@@ -568,7 +568,7 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                             case 'activate': {
                                 const info = drv.activateWindow(windowTitle, windowClass, windowHandle);
                                 if (!info) {
-                                    return errorResult('未找到目标窗口');
+                                    return errorResult('Target window not found');
                                 }
                                 return jsonResult({
                                     success: true,
@@ -602,22 +602,22 @@ window 子操作: list(列出窗口), find(查找窗口), activate(激活窗口)
                                 if (sh !== undefined) viewUpdate.height = sh;
 
                                 if (Object.keys(viewUpdate).length === 0) {
-                                    return errorResult('需要至少一个参数: setX/setY/setWidth/setHeight');
+                                    return errorResult('At least one parameter required: setX/setY/setWidth/setHeight');
                                 }
                                 drv.setWindowView(viewUpdate, windowTitle, windowClass, windowHandle);
                                 return jsonResult({ success: true, view: viewUpdate });
                             }
 
                             default:
-                                return errorResult(`未知窗口操作: ${subAction}，支持: list/find/activate/getView/setView`);
+                                return errorResult(`Unknown window action: ${subAction}, supported: list/find/activate/getView/setView`);
                         }
                     }
 
                     default:
-                        return errorResult(`未知动作: ${action}`);
+                        return errorResult(`Unknown action: ${action}`);
                 }
             } catch (error: any) {
-                return errorResult(`桌面操作失败: ${error.message}`);
+                return errorResult(`Desktop operation failed: ${error.message}`);
             }
         },
     };

@@ -70,7 +70,7 @@ function saveSettings(workspace: string, settings: RuntimeSettings): void {
     try {
         writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
     } catch (err) {
-        console.error('[Settings] 保存失败:', err);
+        console.error('[Settings] Save failed:', err);
     }
 }
 
@@ -95,6 +95,7 @@ function saveServerConfig(workspace: string, config: any): void {
                     },
                 } : {}),
             },
+            language: config.language || 'zh-CN',
             updatedAt: new Date().toISOString(),
         };
         // 保存全局角色设定、技能和 Agent 模型
@@ -132,7 +133,7 @@ function saveServerConfig(workspace: string, config: any): void {
         }
         writeFileSync(configPath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
-        console.error('[ServerConfig] 保存失败:', err);
+        console.error('[ServerConfig] Save failed:', err);
     }
 }
 
@@ -174,7 +175,7 @@ function mergeServerConfig(workspace: string, config: any): void {
                 const DEPRECATED_LOCAL_MODELS = ['Xenova/bge-m3', 'Xenova/bge-small-zh-v1.5'];
                 if (config.llm.embedding.provider === 'local' &&
                     DEPRECATED_LOCAL_MODELS.includes(config.llm.embedding.model)) {
-                    log.info(`迁移已废弃的本地嵌入模型: ${config.llm.embedding.model} → ${BUNDLED_LOCAL_MODEL}`);
+                    log.info(`Migrated deprecated local embedding model: ${config.llm.embedding.model} → ${BUNDLED_LOCAL_MODEL}`);
                     config.llm.embedding.model = BUNDLED_LOCAL_MODEL;
                 }
             }
@@ -225,7 +226,12 @@ function mergeServerConfig(workspace: string, config: any): void {
             config.presetModels = saved.presetModels;
         }
 
-        log.info('已合并 server-config.json 中的 UI 设置');
+        // Restore language setting
+        if (saved.language) {
+            config.language = saved.language;
+        }
+
+        log.info('Merged UI settings from server-config.json');
     } catch {
         // 文件不存在或解析失败，忽略
     }
@@ -276,7 +282,7 @@ interface GatewayMessage {
  * 独立 Gateway Server
  */
 export async function createStandaloneGateway() {
-    log.info('独立 Gateway 启动中...');
+    log.info('Standalone Gateway starting...');
 
     // 1. 加载配置
     const config = await loadConfig();
@@ -285,7 +291,7 @@ export async function createStandaloneGateway() {
     mergeServerConfig(workspace, config);
     const port = config.remote?.port || 18801;
     const token = config.remote?.token;
-    log.info('配置加载完成');
+    log.info('Configuration loaded');
 
     // 2. 加载运行时设置（输出目录等）
     const runtimeSettings = loadSettings(workspace);
@@ -293,7 +299,7 @@ export async function createStandaloneGateway() {
     if (!existsSync(runtimeSettings.outputPath)) {
         try { mkdirSync(runtimeSettings.outputPath, { recursive: true }); } catch { /* ignore */ }
     }
-    log.info('运行时设置加载完成', { outputPath: runtimeSettings.outputPath });
+    log.info('Runtime settings loaded', { outputPath: runtimeSettings.outputPath });
 
     // 2.5 初始化 Voice 服务（TTS + STT）
     let ttsService: TTSService | null = null;
@@ -309,9 +315,9 @@ export async function createStandaloneGateway() {
                 autoPlay: voiceConfig?.tts?.autoPlay,
             });
             await ttsService.initialize();
-            log.info('TTS 服务初始化完成');
+            log.info('TTS service initialized');
         } catch (err) {
-            log.warn('TTS 初始化失败（语音合成不可用）', { error: String(err) });
+            log.warn('TTS initialization failed (voice synthesis unavailable)', { error: String(err) });
         }
     }
     if (voiceConfig?.stt?.enabled !== false) {
@@ -322,9 +328,9 @@ export async function createStandaloneGateway() {
                 numThreads: voiceConfig?.stt?.numThreads,
             });
             await sttService.initialize();
-            log.info('STT 服务初始化完成');
+            log.info('STT service initialized');
         } catch (err) {
-            log.warn('STT 初始化失败（语音识别不可用）', { error: String(err) });
+            log.warn('STT initialization failed (speech recognition unavailable)', { error: String(err) });
         }
     }
 
@@ -342,7 +348,7 @@ export async function createStandaloneGateway() {
         });
         log.info(`LLM Provider: ${llmConfig.provider}/${llmConfig.model}`);
     } catch (err) {
-        log.warn(`LLM 初始化跳过（未配置 API Key），等待引导设置: ${err}`);
+        log.warn(`LLM initialization skipped (API Key not configured), waiting for setup: ${err}`);
     }
 
     // 3. 初始化工具注册表 + 工作流引擎
@@ -368,10 +374,10 @@ export async function createStandaloneGateway() {
                     if (task && !task.sessionId) {
                         const session = sessions.create('default', `🕐 ${task.name}`);
                         scheduler.updateTask(task.id, { sessionId: session.id });
-                        log.info(`任务首次执行，创建会话: "${task.name}" → ${session.id}`);
+                        log.info(`Task first run, session created: "${task.name}" → ${session.id}`);
                     }
                 } catch (e) {
-                    log.error('为定时任务创建会话失败:', e);
+                    log.error('Failed to create session for scheduled task:', e);
                 }
             }
 
@@ -420,14 +426,14 @@ export async function createStandaloneGateway() {
         webSearch: config.web?.search,
         webFetch: config.web?.fetch,
     });
-    log.info('工作流引擎初始化完成');
+    log.info('Workflow engine initialized');
 
     // 3.6 验证 Python 环境
     try {
         const { logPythonEnvStatus } = await import('../utils/python-env');
         logPythonEnvStatus();
     } catch (e) {
-        log.warn('Python 环境模块加载失败（不影响核心功能）');
+        log.warn('Python environment module load failed (does not affect core functionality)');
     }
 
     // 3.8 初始化长期记忆
@@ -448,7 +454,7 @@ export async function createStandaloneGateway() {
                 const embApiKey = embConfig.apiKey || process.env[`${embConfig.provider.toUpperCase()}_API_KEY`] || '';
 
                 if (!embApiKey && embConfig.provider !== 'local') {
-                    log.warn(`Embedding provider '${embConfig.provider}' 缺少 API Key。请在 openflux.yaml 中配置或设置环境变量 ${embConfig.provider.toUpperCase()}_API_KEY。长期记忆系统将不会初始化。`);
+                    log.warn(`Embedding provider '${embConfig.provider}' missing API Key. Please configure in openflux.yaml or set env var ${embConfig.provider.toUpperCase()}_API_KEY. Long-term memory system will not initialize.`);
                     throw new Error(`Missing API Key for embedding provider: ${embConfig.provider}`);
                 }
 
@@ -473,7 +479,7 @@ export async function createStandaloneGateway() {
             });
             // 注册 memory 工具
             tools.register(createMemoryTool({ memoryManager }));
-            log.info('长期记忆系统初始化完成');
+            log.info('Long-term memory system initialized');
 
             // 3.9 初始化记忆蒸馏系统 (独立于原有 MemoryManager)
             try {
@@ -516,7 +522,7 @@ export async function createStandaloneGateway() {
                     // (distillConfig 是初始化快照, updateConfig 后不会同步回来)
                     if (distillScheduler.getStatus().enabled) {
                         cardManager.generateMicroCard(entry.content, entry.id).catch(err => {
-                            log.debug('Micro 卡片生成失败 (不影响核心记忆)', { error: String(err) });
+                            log.debug('Micro card generation failed (does not affect core memory)', { error: String(err) });
                         });
                     }
                 });
@@ -525,15 +531,15 @@ export async function createStandaloneGateway() {
                 (memoryManager as any)._cardManager = cardManager;
                 (memoryManager as any)._distillScheduler = distillScheduler;
 
-                log.info(`记忆蒸馏系统初始化完成 (${distillConfig.enabled ? '已启用' : '未启用'}, 时段: ${distillConfig.startTime}-${distillConfig.endTime})`);
+                log.info(`Memory distillation system initialized (${distillConfig.enabled ? 'enabled' : 'disabled'}, period: ${distillConfig.startTime}-${distillConfig.endTime})`);
             } catch (distillError) {
-                log.warn('记忆蒸馏系统初始化失败 (不影响基础记忆功能)', { error: String(distillError) });
+                log.warn('Memory distillation system initialization failed (does not affect basic memory)', { error: String(distillError) });
             }
 
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             const errorStack = error instanceof Error ? error.stack : undefined;
-            log.error('长期记忆系统初始化失败', { message: errorMsg, stack: errorStack });
+            log.error('Long-term memory system initialization failed', { message: errorMsg, stack: errorStack });
         }
     }
 
@@ -546,9 +552,9 @@ export async function createStandaloneGateway() {
                 tools.register(tool);
             }
             const serverInfo = mcpManager.getServerInfo();
-            log.info(`MCP 工具注册完成: ${serverInfo.map(s => `${s.name}(${s.toolCount})`).join(', ')}`);
+            log.info(`MCP tools registered: ${serverInfo.map(s => `${s.name}(${s.toolCount})`).join(', ')}`);
         } catch (error) {
-            log.error('MCP 初始化失败（不影响核心功能）:', { error });
+            log.error('MCP initialization failed (does not affect core functionality):', { error });
         }
     }
 
@@ -559,7 +565,7 @@ export async function createStandaloneGateway() {
         llm,
         tools,
         onComplete: (result) => {
-            log.info(`SubAgent 完成: ${result.id}`, { status: result.status });
+            log.info('SubAgent completed: ${result.id}', { status: result.status });
         },
     });
     const spawnTool = createSpawnTool({
@@ -568,13 +574,13 @@ export async function createStandaloneGateway() {
         onExecute: subAgentExecutor,
     });
     tools.register(spawnTool);
-    log.info(`工具注册完成，共 ${tools.getToolNames().length} 个`);
+    log.info(`Tools registered, total: ${tools.getToolNames().length}`);
 
     // 5. 初始化会话存储
     const sessions = new SessionStore({
         storePath: config.workspace,
     });
-    log.info('会话存储初始化完成');
+    log.info('Session store initialized');
 
     // 6. 创建 AgentManager（多 Agent 路由 + 工具过滤 + 执行）
     const agentManager = new AgentManager({
@@ -587,14 +593,14 @@ export async function createStandaloneGateway() {
     });
 
     // 7. 保留 agentRunner 给定时任务等内部场景使用（let 以支持热更新重建）
-    let agentRunner = createAgentLoopRunner({ llm, tools });
+    let agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
 
     // 8. 初始化 OpenFlux 云端聊天桥接器
     const openfluxBridge = new OpenFluxChatBridge({
         apiUrl: 'https://nexus-api.atyun.com',
         wsUrl: 'wss://nexus-chat.atyun.com',
     });
-    log.info('OpenFlux 云端桥接器初始化完成');
+    log.info('OpenFlux cloud bridge initialized');
 
     // 9. 初始化 OpenFluxRouter 桥接器
     const routerBridge = new RouterBridge();
@@ -618,7 +624,7 @@ export async function createStandaloneGateway() {
             const data = JSON.parse(readFileSync(routerUserFile, 'utf-8'));
             if (data?.platform_type && data?.platform_id && data?.platform_user_id) {
                 lastRouterUser = data;
-                log.info('已恢复上次入站用户', { platform: data.platform_type, userId: data.platform_user_id });
+                log.info('Restored last inbound user', { platform: data.platform_type, userId: data.platform_user_id });
             }
         }
     } catch {
@@ -643,16 +649,16 @@ export async function createStandaloneGateway() {
         }
         // 2. 搜索已有的 Router 会话（按标题匹配）
         const allSessions = sessions.list();
-        const routerSession = allSessions.find(s => s.title === 'Router 消息');
+        const routerSession = allSessions.find(s => s.title === 'Router Messages');
         if (routerSession) {
             routerSessionId = routerSession.id;
-            log.info('复用已有 Router 会话', { sessionId: routerSessionId });
+            log.info('Reusing existing Router session', { sessionId: routerSessionId });
             return routerSessionId;
         }
         // 3. 没找到则创建新的
-        const session = sessions.create('default', 'Router 消息');
+        const session = sessions.create('default', 'Router Messages');
         routerSessionId = session.id;
-        log.info('创建 Router 专属会话', { sessionId: routerSessionId });
+        log.info('Created Router dedicated session', { sessionId: routerSessionId });
         return routerSessionId;
     }
 
@@ -691,7 +697,7 @@ export async function createStandaloneGateway() {
         const baseUrl = getRouterHttpBaseUrl();
         const apiKey = routerBridge.getRawConfig()?.apiKey;
         if (!baseUrl || !apiKey) {
-            log.error('无法下载 Router 文件：缺少 Router URL 或 API Key');
+            log.error('Cannot download Router file: missing Router URL or API Key');
             return null;
         }
 
@@ -701,7 +707,7 @@ export async function createStandaloneGateway() {
         mkdirSync(localDir, { recursive: true });
 
         const downloadUrl = `${baseUrl}/api/files/download?path=${encodeURIComponent(remotePath)}`;
-        log.info('从 Router 下载文件', { url: downloadUrl, fileName });
+        log.info('Downloading file from Router', { url: downloadUrl, fileName });
 
         try {
             const resp = await fetch(downloadUrl, {
@@ -709,7 +715,7 @@ export async function createStandaloneGateway() {
             });
 
             if (!resp.ok) {
-                log.error('Router 文件下载失败', { status: resp.status, statusText: resp.statusText });
+                log.error('Router file download failed', { status: resp.status, statusText: resp.statusText });
                 return null;
             }
 
@@ -718,10 +724,10 @@ export async function createStandaloneGateway() {
             const { writeFileSync: writeFile } = await import('fs');
             writeFile(localPath, buffer);
 
-            log.info('Router 文件已下载到本地', { localPath, size: buffer.length });
+            log.info('Router file downloaded to local', { localPath, size: buffer.length });
             return { localPath, size: buffer.length };
         } catch (err) {
-            log.error('Router 文件下载异常', { error: err instanceof Error ? err.message : String(err) });
+            log.error('Router file download error', { error: err instanceof Error ? err.message : String(err) });
             return null;
         }
     }
@@ -757,7 +763,7 @@ export async function createStandaloneGateway() {
                 const ext = originalName ? ('.' + originalName.split('.').pop()) : (extMap[contentType] || '.dat');
                 const safeFileName = `${msgId.slice(0, 8)}_${originalName || `file${ext}`}`;
 
-                log.info('收到 Router 多媒体消息', {
+                log.info('Received Router multimedia message', {
                     contentType,
                     remotePath: remotePath.slice(0, 100),
                     fileName: originalName,
@@ -781,7 +787,7 @@ export async function createStandaloneGateway() {
                 } else {
                     // 下载失败，降级为文本提示
                     agentInput = `[${contentType}] 用户发送了一个文件，但下载失败，无法处理`;
-                    log.warn('多媒体文件下载失败，降级为文本', { remotePath });
+                    log.warn('Multimedia file download failed, falling back to text', { remotePath });
                 }
             }
 
@@ -809,7 +815,7 @@ export async function createStandaloneGateway() {
             });
 
             // 3. 调用 Agent 处理
-            log.info('Router 入站消息进入 Agent 处理', { from: userLabel, content: agentInput.slice(0, 80) });
+            log.info('Router inbound message sent to Agent', { from: userLabel, content: agentInput.slice(0, 80) });
             broadcastToClients({ type: 'chat.start', id: msgId });
 
             const routerMetadata = {
@@ -849,7 +855,7 @@ export async function createStandaloneGateway() {
                     content_type: 'text',
                     content: output,
                 });
-                log.info('AI 回复已回传到 Router', { platform: msg.platform_type, userId: msg.platform_user_id });
+                log.info('AI reply sent back to Router', { platform: msg.platform_type, userId: msg.platform_user_id });
             } catch (error) {
                 const errorMsg = error instanceof Error ? error.message : String(error);
                 broadcastToClients({
@@ -857,7 +863,7 @@ export async function createStandaloneGateway() {
                     id: msgId,
                     payload: { message: errorMsg },
                 });
-                log.error('Router Agent 处理失败', { error: errorMsg });
+                log.error('Router Agent processing failed', { error: errorMsg });
             }
         };
     }
@@ -903,7 +909,7 @@ export async function createStandaloneGateway() {
         try {
             const routerCfg = (config as any).router as RouterConfig;
             if (!routerCfg?.appId || !routerCfg?.apiKey) {
-                log.warn('收到 LLM 配置但 Router 未配置 appId/apiKey，无法解密');
+                log.warn('Received LLM config but Router has no appId/apiKey, cannot decrypt');
                 return;
             }
             // AES-256-GCM 解密 API Key
@@ -919,7 +925,7 @@ export async function createStandaloneGateway() {
                 baseUrl: cfg.base_url || undefined,
                 quota: cfg.quota,
             };
-            log.info('托管 LLM 配置已更新', { provider: cfg.provider, model: cfg.model });
+            log.info('Hosted LLM config updated', { provider: cfg.provider, model: cfg.model });
 
             // 如果当前已使用 managed 源，自动重建 LLM 实例使新配置立即生效
             if (llmSource === 'managed') {
@@ -939,8 +945,8 @@ export async function createStandaloneGateway() {
                     baseUrl: managedLlmConfig.baseUrl,
                 });
                 agentManager.updateLLM(llm);
-                agentRunner = createAgentLoopRunner({ llm, tools });
-                log.info('托管 LLM 配置已自动热更新', { provider: managedLlmConfig.provider, model: managedLlmConfig.model });
+                agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
+                log.info('Hosted LLM config auto hot-updated', { provider: managedLlmConfig.provider, model: managedLlmConfig.model });
             }
 
             // 推送给所有客户端（不含明文 key）
@@ -960,7 +966,7 @@ export async function createStandaloneGateway() {
                 }
             }
         } catch (err) {
-            log.error('解密托管 LLM 配置失败', { error: err });
+            log.error('Failed to decrypt hosted LLM config', { error: err });
         }
     };
     // 初始化 Router 消息处理回调
@@ -968,9 +974,9 @@ export async function createStandaloneGateway() {
     // 如果配置中已有 Router 设置，自动连接
     if ((config as any).router?.enabled) {
         routerBridge.connect((config as any).router as RouterConfig);
-        log.info('OpenFluxRouter 桥接器已初始化并连接');
+        log.info('OpenFluxRouter bridge initialized and connected');
     } else {
-        log.info('OpenFluxRouter 桥接器已初始化（未启用）');
+        log.info('OpenFluxRouter bridge initialized (not enabled)');
     }
 
     // 注册全局日志广播：将日志推送到所有已订阅 debug 的客户端
@@ -1001,7 +1007,7 @@ export async function createStandaloneGateway() {
         attachments?: Array<{ path: string; name: string; size: number; ext: string }>,
         userMetadata?: Record<string, unknown>,
     ): Promise<string> {
-        log.info('执行任务', { input: input.slice(0, 100), sessionId, attachments: attachments?.length || 0 });
+        log.info('Executing task', { input: input.slice(0, 100), sessionId, attachments: attachments?.length || 0 });
 
         // 设置当前执行会话（用于 process.spawn 关联）
         currentExecutingSessionId = sessionId;
@@ -1017,7 +1023,7 @@ export async function createStandaloneGateway() {
 
         currentExecutingSessionId = undefined;
 
-        log.info('任务完成', {
+        log.info('Task completed', {
             agentId: result.agentId,
             route: result.routeResult?.reason,
         });
@@ -1038,7 +1044,7 @@ export async function createStandaloneGateway() {
     ): Promise<string> {
         const taskName = meta?.taskName || '定时任务';
         const msgId = crypto.randomUUID();
-        log.info('定时任务执行', { taskName, prompt: prompt.slice(0, 100), sessionId });
+        log.info('Scheduled task executing', { taskName, prompt: prompt.slice(0, 100), sessionId });
 
         // 设置当前执行会话（用于 process.spawn 关联）
         currentExecutingSessionId = sessionId;
@@ -1132,7 +1138,7 @@ export async function createStandaloneGateway() {
             payload: { type: 'complete', sessionId },
         });
 
-        log.info('定时任务完成', { taskName, iterations: result.iterations, toolCalls: result.toolCalls.length });
+        log.info('Scheduled task completed', { taskName, iterations: result.iterations, toolCalls: result.toolCalls.length });
         currentExecutingSessionId = undefined;
         return result.output;
     }
@@ -1175,7 +1181,7 @@ export async function createStandaloneGateway() {
                                 sessions.addArtifact(sessionId, {
                                     type: 'file', path: filePath, filename, size, timestamp: Date.now(),
                                 });
-                                log.info('定时任务成果物已保存', { filename, path: filePath });
+                                log.info('Scheduled task artifact saved', { filename, path: filePath });
                             }
                         } catch { /* ignore */ }
                     }
@@ -1197,7 +1203,7 @@ export async function createStandaloneGateway() {
                                             size: f.size,
                                             timestamp: Date.now(),
                                         });
-                                        log.info('定时任务成果物已保存', { filename: f.path, path: f.fullPath });
+                                        log.info('Scheduled task artifact saved', { filename: f.path, path: f.fullPath });
                                     }
                                 } catch { /* ignore */ }
                             }
@@ -1222,7 +1228,7 @@ export async function createStandaloneGateway() {
                                                 filename: resolved.split(/[/\\]/).pop() || resolved,
                                                 timestamp: Date.now(),
                                             });
-                                            log.info('定时任务成果物已保存(stdout)', { path: resolved });
+                                            log.info('Scheduled task artifact saved (stdout)', { path: resolved });
                                         }
                                     } catch { /* ignore */ }
                                 }
@@ -1246,25 +1252,25 @@ export async function createStandaloneGateway() {
                                     size: (data.size as number) || undefined,
                                     timestamp: Date.now(),
                                 });
-                                log.info('定时任务成果物已保存(info)', { path: filePath });
+                                log.info('Scheduled task artifact saved (info)', { path: filePath });
                             }
                         } catch { /* ignore */ }
                     }
                 }
             } catch (err) {
-                log.warn('定时任务成果物提取异常', { tool: tc.name, error: err instanceof Error ? err.message : String(err) });
+                log.warn('Scheduled task artifact extraction error', { tool: tc.name, error: err instanceof Error ? err.message : String(err) });
             }
         }
 
         if (savedPaths.size > 0) {
-            log.info(`定时任务共提取 ${savedPaths.size} 个成果物`);
+            log.info(`Scheduled task extracted ${savedPaths.size} artifacts`);
         }
     }
 
     // 绑定调度器 Agent 执行回调
     schedulerAgentExecute = executeScheduledAgent;
     scheduler.start();
-    log.info('调度器启动完成');
+    log.info('Scheduler started');
 
     /**
      * 广播调度器事件给所有在线客户端
@@ -1303,7 +1309,7 @@ export async function createStandaloneGateway() {
         };
 
         clients.set(clientId, client);
-        log.info(`客户端连接: ${clientId}`);
+        log.info(`Client connected: ${clientId}`);
 
         // 检测是否首次运行（server-config.json 不存在或无 providers 配置）
         let setupRequired = false;
@@ -1349,12 +1355,12 @@ export async function createStandaloneGateway() {
                 for (const name of client.clientMcpToolNames) {
                     tools.unregister(name);
                 }
-                log.info(`客户端 ${clientId} 断开，已清理 ${client.clientMcpToolNames.length} 个代理工具`);
+                log.info(`Client ${clientId} disconnected, cleaned up ${client.clientMcpToolNames.length} proxy tools`);
             }
             clients.delete(clientId);
-            log.info(`客户端断开: ${clientId}`);
+            log.info(`Client disconnected: ${clientId}`);
         });
-        ws.on('error', (error: Error) => log.error(`客户端错误: ${clientId}`, { error }));
+        ws.on('error', (error: Error) => log.error(`Client error: ${clientId}`, { error }));
     }
 
     /**
@@ -1426,6 +1432,24 @@ export async function createStandaloneGateway() {
                 case 'config.update':
                     await handleConfigUpdate(client, message);
                     break;
+                case 'language.update': {
+                    const lang = (message.payload as any)?.language;
+                    if (lang && typeof lang === 'string') {
+                        // Map frontend locale to BCP 47
+                        const langMap: Record<string, string> = { zh: 'zh-CN', en: 'en' };
+                        const bcp47 = langMap[lang] || lang;
+                        config.language = bcp47;
+                        // Rebuild agentRunner with new language
+                        agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
+                        // Persist language to server-config.json
+                        saveServerConfig(workspace, config);
+                        log.info('Language updated', { language: bcp47 });
+                        send(client, { type: 'language.update', id: message.id, payload: { success: true, language: bcp47 } });
+                    } else {
+                        send(client, { type: 'language.update', id: message.id, payload: { success: false, message: 'Missing language' } });
+                    }
+                    break;
+                }
                 case 'config.set-llm-source': {
                     const src = (message.payload as any)?.source;
                     if (src === 'managed' && managedLlmConfig) {
@@ -1448,8 +1472,8 @@ export async function createStandaloneGateway() {
                             baseUrl: managedLlmConfig.baseUrl,
                         });
                         agentManager.updateLLM(llm);
-                        agentRunner = createAgentLoopRunner({ llm, tools });
-                        log.info('已切换到托管 LLM 配置', { provider: managedLlmConfig.provider });
+                        agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
+                        log.info('Switched to hosted LLM config', { provider: managedLlmConfig.provider });
                     } else {
                         llmSource = 'local';
                         // 重新加载本地 server-config.json 恢复配置
@@ -1465,7 +1489,7 @@ export async function createStandaloneGateway() {
                                 }
                             }
                         } catch (e) {
-                            log.error('恢复本地 LLM 配置失败', { error: e });
+                            log.error('Restore local LLM config failed', { error: e });
                         }
                         // 重建 LLM 实例并清除缓存
                         const localCfg = config.llm.orchestration;
@@ -1478,8 +1502,8 @@ export async function createStandaloneGateway() {
                             maxTokens: localCfg.maxTokens,
                         });
                         agentManager.updateLLM(llm);
-                        agentRunner = createAgentLoopRunner({ llm, tools });
-                        log.info('已切换到本地 LLM 配置');
+                        agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
+                        log.info('Switched to local LLM config');
                     }
                     send(client, { type: 'config.llm-source', id: message.id, payload: { source: llmSource } });
                     break;
@@ -1509,23 +1533,23 @@ export async function createStandaloneGateway() {
                         const cfgPath = join(workspace, 'server-config.json');
                         if (!existsSync(cfgPath)) {
                             writeFileSync(cfgPath, JSON.stringify({ _setupSkipped: true, providers: {} }, null, 2), 'utf-8');
-                            log.info('用户跳过首次设置，已创建标记文件');
+                            log.info('User skipped first-time setup, marker file created');
                         }
                         send(client, { type: 'setup.skipped', id: message.id, payload: { message: '已跳过设置' } });
                     } catch (err) {
-                        log.error('跳过设置标记失败', err);
+                        log.error('Skip setup marking failed', err);
                         send(client, { type: 'setup.error', id: message.id, payload: { message: '标记失败' } });
                     }
                     break;
                 }
                 case 'debug.subscribe':
                     client.debugSubscribed = true;
-                    console.log(`[DEBUG] 客户端 ${client.id} 订阅 debug 日志, clients=${clients.size}`);
-                    log.info(`客户端 ${client.id} 订阅 debug 日志`);
+                    console.log(`[DEBUG] Client ${client.id} subscribed to debug logs, clients=${clients.size}`);
+                    log.info(`Client ${client.id} subscribed to debug logs`);
                     break;
                 case 'debug.unsubscribe':
                     client.debugSubscribed = false;
-                    log.info(`客户端 ${client.id} 取消订阅 debug 日志`);
+                    log.info(`Client ${client.id} unsubscribed from debug logs`);
                     break;
                 case 'mcp.client.register':
                     handleClientMcpRegister(client, message);
@@ -1628,7 +1652,7 @@ export async function createStandaloneGateway() {
                     send(client, { type: 'error', payload: { message: `未知消息类型: ${message.type}` } });
             }
         } catch (error) {
-            log.error('处理消息失败', { error });
+            log.error('Message processing failed', { error });
             send(client, { type: 'error', payload: { message: '消息处理失败' } });
         }
     }
@@ -1933,7 +1957,7 @@ export async function createStandaloneGateway() {
             const topics = cardManager.listTopics();
             send(client, { type: 'distillation.graph', id: message.id, payload: { cards, relations, topics } });
         } catch (err) {
-            log.error('获取蒸馏图数据失败', { error: String(err) });
+            log.error('Get distillation graph data failed', { error: String(err) });
             send(client, { type: 'distillation.graph', id: message.id, payload: { cards: [], relations: [], topics: [] } });
         }
     }
@@ -1942,7 +1966,7 @@ export async function createStandaloneGateway() {
         const cardManager = memoryManager ? (memoryManager as any)._cardManager : null;
         const scheduler = memoryManager ? (memoryManager as any)._distillScheduler : null;
         if (!cardManager) {
-            send(client, { type: 'distillation.config.update', id: message.id, payload: { success: false, message: '蒸馏系统未初始化' } });
+            send(client, { type: 'distillation.config.update', id: message.id, payload: { success: false, message: 'Distillation system not initialized' } });
             return;
         }
         try {
@@ -1960,17 +1984,17 @@ export async function createStandaloneGateway() {
     async function handleDistillationTrigger(client: GatewayClient, message: GatewayMessage): Promise<void> {
         const scheduler = memoryManager ? (memoryManager as any)._distillScheduler : null;
         if (!scheduler) {
-            log.warn('手动蒸馏失败: scheduler 不存在', { hasMemory: !!memoryManager, hasCardManager: !!(memoryManager as any)?._cardManager });
-            send(client, { type: 'distillation.trigger', id: message.id, payload: { success: false, message: '蒸馏系统未初始化' } });
+            log.warn('Manual distillation failed: scheduler not found', { hasMemory: !!memoryManager, hasCardManager: !!(memoryManager as any)?._cardManager });
+            send(client, { type: 'distillation.trigger', id: message.id, payload: { success: false, message: 'Distillation system not initialized' } });
             return;
         }
         try {
-            log.info('⚡ 手动触发蒸馏...');
+            log.info('Manual distillation triggered...');
             await scheduler.triggerManual();
-            log.info('⚡ 手动蒸馏完成');
+            log.info('Manual distillation completed');
             send(client, { type: 'distillation.trigger', id: message.id, payload: { success: true } });
         } catch (err) {
-            log.error('⚡ 手动蒸馏失败', { error: String(err), stack: (err as any)?.stack });
+            log.error('Manual distillation failed', { error: String(err), stack: (err as any)?.stack });
             send(client, { type: 'distillation.trigger', id: message.id, payload: { success: false, message: String(err) } });
         }
     }
@@ -2008,7 +2032,7 @@ export async function createStandaloneGateway() {
             const cards = rows.map((r: any) => ({
                 id: r.card_id,
                 topicId: r.topic_id,
-                topicTitle: r.topic_title || '未分类',
+                topicTitle: r.topic_title || 'Uncategorized',
                 layer: r.layer,
                 summary: r.summary,
                 qualityScore: r.quality_score,
@@ -2018,7 +2042,7 @@ export async function createStandaloneGateway() {
             }));
             send(client, { type: 'distillation.cards', id: message.id, payload: { cards, total } });
         } catch (err) {
-            log.error('获取卡片列表失败', { error: String(err) });
+            log.error('Get card list failed', { error: String(err) });
             send(client, { type: 'distillation.cards', id: message.id, payload: { cards: [], total: 0 } });
         }
     }
@@ -2026,19 +2050,19 @@ export async function createStandaloneGateway() {
     function handleDistillationCardDelete(client: GatewayClient, message: GatewayMessage): void {
         const cardManager = memoryManager ? (memoryManager as any)._cardManager : null;
         if (!cardManager) {
-            send(client, { type: 'distillation.card.delete', id: message.id, payload: { success: false, message: '卡片系统未初始化' } });
+            send(client, { type: 'distillation.card.delete', id: message.id, payload: { success: false, message: 'Card system not initialized' } });
             return;
         }
         try {
             const { cardId } = (message.payload || {}) as any;
             if (!cardId) {
-                send(client, { type: 'distillation.card.delete', id: message.id, payload: { success: false, message: '缺少 cardId' } });
+                send(client, { type: 'distillation.card.delete', id: message.id, payload: { success: false, message: 'Missing cardId' } });
                 return;
             }
             const ok = cardManager.deleteCard(cardId);
             send(client, { type: 'distillation.card.delete', id: message.id, payload: { success: ok } });
         } catch (err) {
-            log.error('删除卡片失败', { error: String(err) });
+            log.error('Delete card failed', { error: String(err) });
             send(client, { type: 'distillation.card.delete', id: message.id, payload: { success: false, message: String(err) } });
         }
     }
@@ -2050,7 +2074,7 @@ export async function createStandaloneGateway() {
     async function handleVoiceSynthesize(client: GatewayClient, message: GatewayMessage): Promise<void> {
         const payload = message.payload as { text: string };
         if (!ttsService?.isAvailable()) {
-            send(client, { type: 'voice.synthesize', id: message.id, payload: { error: 'TTS 服务不可用' } });
+            send(client, { type: 'voice.synthesize', id: message.id, payload: { error: 'TTS service unavailable' } });
             return;
         }
         try {
@@ -2059,14 +2083,14 @@ export async function createStandaloneGateway() {
             const base64Audio = audioBuffer.toString('base64');
             send(client, { type: 'voice.synthesize', id: message.id, payload: { audio: base64Audio } });
         } catch (err: any) {
-            send(client, { type: 'voice.synthesize', id: message.id, payload: { error: err.message || '语音合成失败' } });
+            send(client, { type: 'voice.synthesize', id: message.id, payload: { error: err.message || 'Voice synthesis failed' } });
         }
     }
 
     async function handleVoiceTranscribe(client: GatewayClient, message: GatewayMessage): Promise<void> {
         const payload = message.payload as { audio: string }; // base64 WAV
         if (!sttService?.isAvailable()) {
-            send(client, { type: 'voice.transcribe', id: message.id, payload: { error: 'STT 服务不可用' } });
+            send(client, { type: 'voice.transcribe', id: message.id, payload: { error: 'STT service unavailable' } });
             return;
         }
         try {
@@ -2074,7 +2098,7 @@ export async function createStandaloneGateway() {
             const result = await sttService.transcribe(buffer);
             send(client, { type: 'voice.transcribe', id: message.id, payload: { text: result.text, elapsed: result.elapsed } });
         } catch (err: any) {
-            send(client, { type: 'voice.transcribe', id: message.id, payload: { error: err.message || '语音识别失败' } });
+            send(client, { type: 'voice.transcribe', id: message.id, payload: { error: err.message || 'Voice recognition failed' } });
         }
     }
 
@@ -2094,7 +2118,7 @@ export async function createStandaloneGateway() {
     async function handleVoiceSetVoice(client: GatewayClient, message: GatewayMessage): Promise<void> {
         const payload = message.payload as { voice: string };
         if (!ttsService) {
-            send(client, { type: 'voice.set-voice', id: message.id, payload: { error: 'TTS 服务未初始化' } });
+            send(client, { type: 'voice.set-voice', id: message.id, payload: { error: 'TTS service not initialized' } });
             return;
         }
         try {
@@ -2131,7 +2155,7 @@ export async function createStandaloneGateway() {
     async function handleOpenFluxLogin(client: GatewayClient, message: GatewayMessage): Promise<void> {
         const payload = message.payload as { username: string; password: string };
         if (!payload?.username || !payload?.password) {
-            send(client, { type: 'openflux.login', id: message.id, payload: { success: false, message: '缺少用户名或密码' } });
+            send(client, { type: 'openflux.login', id: message.id, payload: { success: false, message: 'Missing username or password' } });
             return;
         }
         const result = await openfluxBridge.login(payload.username, payload.password);
@@ -2190,11 +2214,11 @@ export async function createStandaloneGateway() {
         messageId: string,
     ): Promise<void> {
         if (!payload.chatroomId) {
-            send(client, { type: 'chat.error', id: messageId, payload: { message: '缺少 chatroomId' } });
+            send(client, { type: 'chat.error', id: messageId, payload: { message: 'Missing chatroomId' } });
             return;
         }
 
-        log.info('Cloud 聊天开始', {
+        log.info('Cloud chat started', {
             sessionId: payload.sessionId?.slice(0, 8),
             chatroomId: payload.chatroomId,
             inputLength: payload.input?.length,
@@ -2243,12 +2267,12 @@ export async function createStandaloneGateway() {
             });
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
-            log.error('Cloud 聊天异常', { error: errorMsg });
+            log.error('Cloud chat error', { error: errorMsg });
 
             // 如果已经收集到了回复内容，仍然保存助手消息
             const fallbackOutput = collectedTokens.join('');
             if (fallbackOutput.length > 0) {
-                log.info('Cloud 聊天异常但有收集到回复，尝试保存');
+                log.info('Cloud chat error but collected reply, attempting to save');
                 saveCloudAssistantMessage(payload.sessionId, fallbackOutput);
                 // 发送 complete（而非 error），因为用户已看到了回复
                 send(client, {
@@ -2275,13 +2299,13 @@ export async function createStandaloneGateway() {
                 content: output,
             });
             const updatedMeta = sessions.get(sessionId);
-            log.info('Cloud 助手消息已保存', {
+            log.info('Cloud assistant message saved', {
                 sessionId: sessionId.slice(0, 8),
                 title: updatedMeta?.title,
                 messageCount: updatedMeta?.messageCount,
             });
         } catch (e) {
-            log.error('Cloud 助手消息保存失败', { error: e instanceof Error ? e.message : String(e) });
+            log.error('Cloud assistant message save failed', { error: e instanceof Error ? e.message : String(e) });
         }
     }
 
@@ -2295,7 +2319,7 @@ export async function createStandaloneGateway() {
         // 重启后 routerSessionId 为 null，主动搜索已有 Router 会话
         if (!routerSessionId) {
             const allSessions = sessions.list();
-            const existing = allSessions.find(s => s.title === 'Router 消息');
+            const existing = allSessions.find(s => s.title === 'Router Messages');
             if (existing) routerSessionId = existing.id;
         }
         const sessionId = routerSessionId || null;
@@ -2309,7 +2333,7 @@ export async function createStandaloneGateway() {
     function handleRouterConfigUpdate(client: GatewayClient, message: GatewayMessage): void {
         const payload = message.payload as Partial<RouterConfig> | undefined;
         if (!payload) {
-            send(client, { type: 'router.config.update', id: message.id, payload: { success: false, message: '缺少配置' } });
+            send(client, { type: 'router.config.update', id: message.id, payload: { success: false, message: 'Missing config' } });
             return;
         }
 
@@ -2333,7 +2357,7 @@ export async function createStandaloneGateway() {
             // 更新连接
             routerBridge.updateConfig(newConfig);
 
-            log.info('Router 配置已更新', { url: newConfig.url, appId: newConfig.appId, enabled: newConfig.enabled });
+            log.info('Router config updated', { url: newConfig.url, appId: newConfig.appId, enabled: newConfig.enabled });
             send(client, { type: 'router.config.update', id: message.id, payload: { success: true } });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -2344,7 +2368,7 @@ export async function createStandaloneGateway() {
     function handleRouterSend(client: GatewayClient, message: GatewayMessage): void {
         const payload = message.payload as RouterOutboundMessage | undefined;
         if (!payload?.platform_type || !payload?.platform_id || !payload?.platform_user_id || !payload?.content) {
-            send(client, { type: 'router.send', id: message.id, payload: { success: false, message: '消息字段不完整' } });
+            send(client, { type: 'router.send', id: message.id, payload: { success: false, message: 'Message fields incomplete' } });
             return;
         }
 
@@ -2368,11 +2392,11 @@ export async function createStandaloneGateway() {
         const payload = message.payload as { code?: string } | undefined;
         const code = payload?.code?.trim();
         if (!code) {
-            send(client, { type: 'router.bind', id: message.id, payload: { success: false, message: '配对码不能为空' } });
+            send(client, { type: 'router.bind', id: message.id, payload: { success: false, message: 'Pairing code cannot be empty' } });
             return;
         }
         const ok = routerBridge.bind(code);
-        send(client, { type: 'router.bind', id: message.id, payload: { success: ok, message: ok ? '绑定命令已发送' : 'Router 未连接' } });
+        send(client, { type: 'router.bind', id: message.id, payload: { success: ok, message: ok ? 'Bind command sent' : 'Router not connected' } });
     }
 
     // ========================
@@ -2409,7 +2433,7 @@ export async function createStandaloneGateway() {
 
             // 持久化
             saveSettings(workspace, runtimeSettings);
-            log.info('设置已更新', { outputPath: runtimeSettings.outputPath });
+            log.info('Settings updated', { outputPath: runtimeSettings.outputPath });
         }
 
         send(client, {
@@ -2550,7 +2574,7 @@ export async function createStandaloneGateway() {
         } | undefined;
 
         if (!payload || !payload.provider || !payload.apiKey) {
-            send(client, { type: 'setup.error', id: message.id, payload: { message: '缺少必要配置（供应商和 API Key）' } });
+            send(client, { type: 'setup.error', id: message.id, payload: { message: 'Missing required config (provider and API Key)' } });
             return;
         }
 
@@ -2575,7 +2599,7 @@ export async function createStandaloneGateway() {
 
             // Agent 设置
             if (payload.agentName || payload.agentPrompt) {
-                if (!config.agents) config.agents = { list: [{ id: 'default', default: true, name: '通用助手' }] } as any;
+                if (!config.agents) config.agents = { list: [{ id: 'default', default: true, name: 'General Assistant' }] } as any;
                 if (payload.agentName) config.agents!.globalAgentName = payload.agentName;
                 if (payload.agentPrompt) config.agents!.globalSystemPrompt = payload.agentPrompt;
             }
@@ -2617,16 +2641,16 @@ export async function createStandaloneGateway() {
                     maxTokens: config.llm.execution.maxTokens,
                 });
                 agentManager.updateLLM(newOrchLLM, newExecLLM);
-                agentRunner = createAgentLoopRunner({ llm: newOrchLLM, tools });
-                log.info('首次设置完成，LLM Provider 已创建');
+                agentRunner = createAgentLoopRunner({ llm: newOrchLLM, tools, language: config.language });
+                log.info('First-time setup complete, LLM Provider created');
             } catch (llmErr) {
-                log.warn('LLM 重新创建失败，可能需要重启', { error: String(llmErr) });
+                log.warn('LLM recreation failed, may need restart', { error: String(llmErr) });
             }
 
-            send(client, { type: 'setup.success', id: message.id, payload: { message: '设置完成' } });
+            send(client, { type: 'setup.success', id: message.id, payload: { message: 'Setup complete' } });
         } catch (err) {
-            log.error('首次设置保存失败', err);
-            send(client, { type: 'setup.error', id: message.id, payload: { message: '保存失败: ' + String(err) } });
+            log.error('First-time setup save failed', err);
+            send(client, { type: 'setup.error', id: message.id, payload: { message: 'Save failed: ' + String(err) } });
         }
     }
 
@@ -2670,7 +2694,7 @@ export async function createStandaloneGateway() {
         } | undefined;
 
         if (!payload) {
-            send(client, { type: 'config.error', id: message.id, payload: { message: '缺少更新内容' } });
+            send(client, { type: 'config.error', id: message.id, payload: { message: 'Missing update content' } });
             return;
         }
 
@@ -2775,7 +2799,7 @@ export async function createStandaloneGateway() {
                         config.web.fetch!.maxChars = payload.web.fetch.maxChars;
                     }
                 }
-                log.info('Web 搜索/获取配置已更新', {
+                log.info('Web search/fetch config updated', {
                     searchProvider: config.web.search?.provider,
                     maxResults: config.web.search?.maxResults,
                 });
@@ -2792,7 +2816,7 @@ export async function createStandaloneGateway() {
                         timeout: 30,
                     })),
                 };
-                log.info('MCP 配置已更新', { serverCount: serverSideMcp.length });
+                log.info('MCP config updated', { serverCount: serverSideMcp.length });
 
                 // 热重载 MCP 连接（仅 server 端）
                 try {
@@ -2812,10 +2836,10 @@ export async function createStandaloneGateway() {
                             tools.register(t);
                         }
                         const serverInfo = mcpManager.getServerInfo();
-                        log.info(`MCP 热重载完成: ${serverInfo.map(s => `${s.name}(${s.toolCount})`).join(', ')}`);
+                        log.info(`MCP hot-reload complete: ${serverInfo.map(s => `${s.name}(${s.toolCount})`).join(', ')}`);
                     }
                 } catch (error) {
-                    log.error('MCP 热重载失败:', { error });
+                    log.error('MCP hot-reload failed:', { error });
                 }
             }
 
@@ -2861,7 +2885,7 @@ export async function createStandaloneGateway() {
                 }
                 // 清除 AgentManager 上下文缓存使新配置生效
                 agentManager.updateLLM(agentManager['options'].defaultLLM);
-                log.info('全局角色设定/技能/Agent模型已更新');
+                log.info('Global agent settings/skills/agent model updated');
             }
 
             // 6.5 更新沙盒配置
@@ -2886,7 +2910,7 @@ export async function createStandaloneGateway() {
                 if (payload.sandbox.blockedExtensions) {
                     sb.blockedExtensions = payload.sandbox.blockedExtensions;
                 }
-                log.info('沙盒配置已更新', { mode: sb.mode });
+                log.info('Sandbox config updated', { mode: sb.mode });
             }
 
             // 7. 持久化到 settings.json（服务端配置部分）
@@ -2913,13 +2937,13 @@ export async function createStandaloneGateway() {
                     });
                     agentManager.updateLLM(newOrchLLM, newExecLLM);
                     // 同步重建定时任务使用的 agentRunner
-                    agentRunner = createAgentLoopRunner({ llm: newOrchLLM, tools });
-                    log.info('LLM Provider 已热更新（含定时任务 Runner）', {
+                    agentRunner = createAgentLoopRunner({ llm: newOrchLLM, tools, language: config.language });
+                    log.info('LLM Provider hot-updated (including scheduler runner)', {
                         orchestration: `${config.llm.orchestration.provider}/${config.llm.orchestration.model}`,
                         execution: `${config.llm.execution.provider}/${config.llm.execution.model}`,
                     });
                 } catch (err) {
-                    log.error('LLM Provider 热更新失败:', err);
+                    log.error('LLM Provider hot-update failed:', err);
                 }
             }
 
@@ -2965,9 +2989,9 @@ export async function createStandaloneGateway() {
                         (memoryManager as any)._cardManager.updateEmbeddingLLM(newEmbeddingLLM);
                     }
 
-                    log.info('Embedding LLM 已更新', { provider, model, dim });
+                    log.info('Embedding LLM updated', { provider, model, dim });
                 } catch (err) {
-                    log.error('Embedding LLM 更新失败:', err);
+                    log.error('Embedding LLM update failed:', err);
                 }
             }
 
@@ -2978,7 +3002,7 @@ export async function createStandaloneGateway() {
             });
         } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
-            log.error('更新服务端配置失败:', err);
+            log.error('Update server config failed:', err);
             send(client, {
                 type: 'config.error',
                 id: message.id,
@@ -3046,7 +3070,7 @@ export async function createStandaloneGateway() {
         }
 
         client.clientMcpToolNames = toolNames;
-        log.info(`客户端 ${client.id} 注册了 ${toolNames.length} 个 MCP 代理工具: ${toolNames.join(', ')}`);
+        log.info(`Client ${client.id} registered ${toolNames.length} MCP proxy tools: ${toolNames.join(', ')}`);
     }
 
     /**
@@ -3057,7 +3081,7 @@ export async function createStandaloneGateway() {
             for (const name of client.clientMcpToolNames) {
                 tools.unregister(name);
             }
-            log.info(`客户端 ${client.id} 移除了 ${client.clientMcpToolNames.length} 个代理工具`);
+            log.info(`Client ${client.id} removed ${client.clientMcpToolNames.length} proxy tools`);
             client.clientMcpToolNames = [];
         }
     }
@@ -3070,7 +3094,7 @@ export async function createStandaloneGateway() {
 
         const pending = pendingClientCalls.get(message.id);
         if (!pending) {
-            log.warn(`收到未知的客户端 MCP 结果: ${message.id}`);
+            log.warn(`Received unknown client MCP result: ${message.id}`);
             return;
         }
 
@@ -3113,7 +3137,7 @@ export async function createStandaloneGateway() {
         }
     }
 
-    log.info('独立 Gateway 初始化完成');
+    log.info('Standalone Gateway initialization complete');
 
     return {
         start(): Promise<void> {
@@ -3121,7 +3145,7 @@ export async function createStandaloneGateway() {
                 wss = new WebSocketServer({ port });
                 wss.on('connection', handleConnection);
                 wss.on('listening', () => {
-                    log.info(`独立 Gateway 启动: ws://localhost:${port}`);
+                    log.info(`Standalone Gateway started: ws://localhost:${port}`);
                     resolve();
                 });
             });
@@ -3135,7 +3159,7 @@ export async function createStandaloneGateway() {
             return new Promise((resolve) => {
                 if (wss) {
                     wss.close(() => {
-                        log.info('独立 Gateway 停止');
+                        log.info('Standalone Gateway stopped');
                         resolve();
                     });
                 } else {
@@ -3157,13 +3181,13 @@ export async function startStandaloneGateway(): Promise<void> {
 
     // 优雅退出
     process.on('SIGINT', async () => {
-        log.info('收到退出信号...');
+        log.info('Received exit signal...');
         await gateway.stop();
         process.exit(0);
     });
 
     process.on('SIGTERM', async () => {
-        log.info('收到终止信号...');
+        log.info('Received termination signal...');
         await gateway.stop();
         process.exit(0);
     });

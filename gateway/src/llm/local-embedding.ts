@@ -22,7 +22,7 @@ async function getTransformers() {
         // 模型已随安装包打包，无需远程下载
         transformersModule.env.allowRemoteModels = false;
         transformersModule.env.allowLocalModels = true;
-        log.info(`模型目录: ${modelDir}`);
+        log.info(`Model directory: ${modelDir}`);
     }
     return transformersModule;
 }

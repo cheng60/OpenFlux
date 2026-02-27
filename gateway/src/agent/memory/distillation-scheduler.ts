@@ -32,7 +32,7 @@ export class DistillationScheduler extends EventEmitter {
      */
     start() {
         if (!this.config.enabled) {
-            this.logger.info('蒸馏系统未启用');
+            this.logger.info('Distillation system not enabled');
             return;
         }
 
@@ -44,7 +44,7 @@ export class DistillationScheduler extends EventEmitter {
         // 启动时立即检查一次
         this.tick();
 
-        this.logger.info(`🌙 蒸馏调度器已启动，时段: ${this.config.startTime} - ${this.config.endTime}`);
+        this.logger.info(`🌙 Distillation scheduler started, period: ${this.config.startTime} - ${this.config.endTime}`);
     }
 
     /**
@@ -55,7 +55,7 @@ export class DistillationScheduler extends EventEmitter {
             clearInterval(this.checkInterval);
             this.checkInterval = null;
         }
-        this.logger.info('蒸馏调度器已停止');
+        this.logger.info('Distillation scheduler stopped');
     }
 
     /**
@@ -72,7 +72,7 @@ export class DistillationScheduler extends EventEmitter {
             this.start();
         }
 
-        this.logger.info('蒸馏配置已更新', config);
+        this.logger.info('Distillation config updated', config);
     }
 
     /**
@@ -80,7 +80,7 @@ export class DistillationScheduler extends EventEmitter {
      */
     async triggerManual(): Promise<void> {
         if (this.isRunning) {
-            this.logger.warn('蒸馏正在进行中，跳过');
+            this.logger.warn('Distillation in progress, skipping');
             return;
         }
         await this.executeDistillation();
@@ -122,7 +122,7 @@ export class DistillationScheduler extends EventEmitter {
         const today = new Date().toISOString().split('T')[0];
         if (this.lastRunDate === today) return;
 
-        this.logger.info('🌙 进入蒸馏窗口，开始执行...');
+        this.logger.info('🌙 Entering distillation window, starting execution...');
         await this.executeDistillation();
     }
 
@@ -137,11 +137,11 @@ export class DistillationScheduler extends EventEmitter {
             const result = await this.upgrader.runDistillation();
             this.lastRunDate = new Date().toISOString().split('T')[0];
 
-            this.logger.info('🌙 蒸馏完成', result);
+            this.logger.info('🌙 Distillation completed', result);
             this.emit('distillationCompleted', result);
 
         } catch (error) {
-            this.logger.error('蒸馏执行失败', { error: String(error) });
+            this.logger.error('Distillation execution failed', { error: String(error) });
             this.emit('distillationFailed', error);
 
         } finally {

@@ -22,7 +22,7 @@ function getKeysender() {
         try {
             keysenderModule = require('keysender');
         } catch (error: any) {
-            throw new Error(`keysender 加载失败: ${error.message}. 请运行: pnpm add keysender && pnpm rebuild keysender`);
+            throw new Error(`keysender failed to load: ${error.message}. Please run: pnpm add keysender && pnpm rebuild keysender`);
         }
     }
     return keysenderModule!;

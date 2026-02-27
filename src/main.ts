@@ -12,6 +12,12 @@ import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import { recorder, player, ttsManager, streamingTtsManager, ambientSound, bargeInDetector, type RecordingState, type PlaybackState, type RecordingOptions } from './voice';
 import { setVoiceSynthesizeCallback } from './voice';
+import { initI18n, t, setLocale, getLocale, applyI18nToDOM, type Locale } from './i18n/index';
+import zhPack from './i18n/zh';
+import enPack from './i18n/en';
+
+// Initialize i18n (auto-detect locale from localStorage or browser)
+initI18n(zhPack, enPack);
 
 interface MessageAttachment {
     name: string;
@@ -443,7 +449,7 @@ function populateModelSelect(select: HTMLSelectElement, customInput: HTMLInputEl
 
     const customOpt = document.createElement('option');
     customOpt.value = '__custom__';
-    customOpt.textContent = '\u270F\uFE0F \u81EA\u5B9A\u4E49...';
+    customOpt.textContent = t('model.custom');
     select.appendChild(customOpt);
 
     if (currentValue) {
@@ -530,7 +536,7 @@ async function showSetupWizard(client: GatewayClient): Promise<void> {
         if (target) target.classList.add('active');
 
         btnPrev.style.display = page > 1 ? '' : 'none';
-        btnNext.textContent = page === totalPages ? '完成设置' : '下一步';
+        btnNext.textContent = page === totalPages ? t('setup.finish') : t('setup.next');
         currentPage = page;
     }
 
@@ -551,7 +557,7 @@ async function showSetupWizard(client: GatewayClient): Promise<void> {
     // 收集配置并提交
     async function submit(): Promise<void> {
         btnNext.disabled = true;
-        btnNext.textContent = '保存中...';
+        btnNext.textContent = t('setup.saving');
         try {
             const config: Parameters<typeof client.setupComplete>[0] = {
                 provider: providerSelect.value,
@@ -574,10 +580,10 @@ async function showSetupWizard(client: GatewayClient): Promise<void> {
             await client.setupComplete(config);
             wizard.style.display = 'none';
         } catch (err) {
-            console.error('[SetupWizard] 提交失败:', err);
+            console.error('[SetupWizard] Submit failed:', err);
             btnNext.disabled = false;
-            btnNext.textContent = '完成设置';
-            alert('设置保存失败: ' + (err instanceof Error ? err.message : String(err)));
+            btnNext.textContent = t('setup.finish_done');
+            alert(t('setup.save_failed', err instanceof Error ? err.message : String(err)));
         }
     }
 
@@ -602,7 +608,7 @@ async function showSetupWizard(client: GatewayClient): Promise<void> {
             wizard.style.display = 'none';
             // 异步标记跳过，不阻塞界面
             client.request('setup.skip').catch((e: unknown) => {
-                console.warn('[SetupWizard] 跳过标记失败:', e);
+                console.warn('[SetupWizard] Skip marking failed:', e);
             });
             resolve();
         });
@@ -614,7 +620,7 @@ async function showSetupWizard(client: GatewayClient): Promise<void> {
 // 初始化
 async function init(): Promise<void> {
     try {
-        setStatus('连接中...', 'running');
+        setStatus(t('status.connecting'), 'running');
 
         // 获取 Gateway 配置
         const config = await invoke<{ url: string, token?: string }>('get_gateway_config');
@@ -631,47 +637,49 @@ async function init(): Promise<void> {
                 connected = true;
                 break;
             } catch (err) {
-                console.warn(`[Init] Gateway 连接尝试 ${attempt}/${maxRetries} 失败:`, err);
+                console.warn(`[Init] Gateway connection attempt ${attempt}/${maxRetries} failed:`, err);
                 try { gatewayClient?.disconnect(); } catch { }
                 if (attempt < maxRetries) {
                     const delay = Math.min(1000 * attempt, 3000);
                     await new Promise(r => setTimeout(r, delay));
                     const elapsed = Math.round((Date.now() - startTime) / 1000);
                     const progressMsg = attempt <= 3
-                        ? '智能体正在初始化…'
+                        ? t('app.init_agent')
                         : attempt <= 10
-                            ? `正在加载核心模块… (${elapsed}s)`
-                            : `正在初始化服务… (${elapsed}s)`;
+                            ? t('app.loading_core', elapsed)
+                            : t('app.init_service', elapsed);
                     if (loadingTextEl) loadingTextEl.textContent = progressMsg;
-                    setStatus(`等待 Gateway 启动... (${elapsed}s)`, 'running');
+                    setStatus(t('app.waiting_gateway', elapsed), 'running');
                 }
             }
         }
         if (!connected) {
-            if (loadingTextEl) loadingTextEl.textContent = '启动超时，请重启应用';
-            throw new Error('Gateway 启动超时，请重启应用');
+            if (loadingTextEl) loadingTextEl.textContent = t('app.timeout');
+            throw new Error(t('app.gateway_timeout'));
         }
-        console.log('[Init] Gateway 连接成功');
+        console.log('[Init] Gateway connected');
 
         // 连接成功后注册事件监听器（此时 gatewayClient 必定不为 null）
         const gw = gatewayClient!;
         gw.onConnectionChange((status) => {
             switch (status) {
                 case 'connecting':
-                    setStatus('连接中...', 'running');
+                    setStatus(t('status.connecting'), 'running');
                     break;
                 case 'connected':
-                    setStatus('就绪', 'ready');
+                    setStatus(t('titlebar.status_ready'), 'ready');
                     checkOpenFluxLoginStatus();
+                    // Sync current language to Gateway on connection
+                    gw.request('language.update', { language: getLocale() }).catch(() => { });
                     break;
                 case 'disconnected':
-                    setStatus('已断开', 'error');
+                    setStatus(t('status.disconnected'), 'error');
                     break;
                 case 'reconnecting':
-                    setStatus('重连中...', 'running');
+                    setStatus(t('status.reconnecting'), 'running');
                     break;
                 case 'failed':
-                    setStatus('连接失败', 'error');
+                    setStatus(t('status.error'), 'error');
                     break;
             }
         });
@@ -681,7 +689,7 @@ async function init(): Promise<void> {
         gw.onRebuildProgress((progress) => {
             if (progress >= 100 || progress < 0) {
                 if (progress >= 100) {
-                    embeddingProgressPercent.textContent = '100% (完成)';
+                    embeddingProgressPercent.textContent = t('embed.progress_done');
                     embeddingProgressBarFill.style.width = '100%';
                 }
                 setTimeout(() => {
@@ -694,6 +702,24 @@ async function init(): Promise<void> {
             }
         });
 
+        // Apply i18n translations to static DOM elements
+        applyI18nToDOM();
+        document.getElementById('html-root')?.setAttribute('lang', getLocale() === 'zh' ? 'zh-CN' : 'en');
+
+        // Bind language switcher
+        const localeSelect = document.getElementById('locale-select') as HTMLSelectElement | null;
+        if (localeSelect) {
+            localeSelect.value = getLocale();
+            localeSelect.addEventListener('change', () => {
+                setLocale(localeSelect.value as Locale);
+                document.getElementById('html-root')?.setAttribute('lang', localeSelect.value === 'zh' ? 'zh-CN' : 'en');
+                // Sync language to Gateway so LLM responds in the correct language
+                if (gatewayClient) {
+                    gatewayClient.request('language.update', { language: localeSelect.value }).catch(() => { });
+                }
+            });
+        }
+
         // 隐藏启动 loading 遮罩层
         const loadingOverlay = document.getElementById('app-loading-overlay');
         if (loadingOverlay) {
@@ -703,7 +729,7 @@ async function init(): Promise<void> {
 
         // 注入 Voice TTS 合成回调（通过 Gateway WebSocket 调用）
         setVoiceSynthesizeCallback(async (text: string) => {
-            if (!gatewayClient) return { error: 'Gateway 未连接' };
+            if (!gatewayClient) return { error: t('app.gateway_not_connected') };
             try {
                 const res = await gatewayClient.request<{ audio?: string; error?: string }>('voice.synthesize', { text });
                 if (res.error) return { error: res.error };
@@ -713,15 +739,15 @@ async function init(): Promise<void> {
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
                     return { audio: bytes.buffer };
                 }
-                return { error: '未收到音频数据' };
+                return { error: t('app.no_audio_received') };
             } catch (err: any) {
-                return { error: err.message || 'TTS 请求失败' };
+                return { error: err.message || t('app.tts_request_failed') };
             }
         });
 
         // 首次启动设置向导
         if (gw.isSetupRequired()) {
-            console.log('[Init] 需要首次设置，显示向导');
+            console.log('[Init] First-time setup needed, showing wizard');
             await showSetupWizard(gw);
         }
 
@@ -750,7 +776,7 @@ async function init(): Promise<void> {
                     ]);
                     renderMessagesWithLogs(messages as Message[], logs as LogEntry[]);
                 } catch (e) {
-                    console.error('[SessionUpdated] 刷新消息失败:', e);
+                    console.error('[SessionUpdated] Refresh messages failed:', e);
                 }
             }
         });
@@ -760,33 +786,33 @@ async function init(): Promise<void> {
         await loadRouterConfig();
 
         await loadSessions();
-        setStatus('就绪', 'ready');
+        setStatus(t('titlebar.status_ready'), 'ready');
     } catch (error) {
-        console.error('[Init] Gateway 连接失败:', error);
-        setStatus('连接失败', 'error');
+        console.error('[Init] Gateway connection failed:', error);
+        setStatus(t('status.error'), 'error');
     }
 }
 
 // 加载会话列表
 async function loadSessions(): Promise<void> {
     if (!gatewayClient) {
-        console.log('[loadSessions] gatewayClient 为空');
+        console.log('[loadSessions] gatewayClient is null');
         return;
     }
     try {
-        console.log('[loadSessions] 开始加载会话...');
+        console.log('[loadSessions] Loading sessions...');
         const sessions = await gatewayClient.getSessions();
-        console.log('[loadSessions] 获取到会话', sessions);
+        console.log('[loadSessions] Sessions received', sessions);
         renderSessions(sessions as Session[]);
     } catch (error) {
-        console.error('[loadSessions] 加载失败:', error);
+        console.error('[loadSessions] Load failed:', error);
     }
 }
 
 // 渲染会话列表
 function renderSessions(sessions: Session[]): void {
     if (sessions.length === 0) {
-        sessionList.innerHTML = '<div class="empty-state" style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:0.85rem;">暂无会话</div>';
+        sessionList.innerHTML = '<div class="empty-state" style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:0.85rem;">' + t('misc.no_sessions') + '</div>';
         return;
     }
 
@@ -796,22 +822,22 @@ function renderSessions(sessions: Session[]): void {
         <div class="session-item${isRouterSession ? ' active' : ''} router-session-item"
              data-session-id="__router__">
             <div class="session-item-content">
-                <div class="session-title" title="OpenFluxRouter 消息通道">${routerBadge}Router 消息</div>
+                <div class="session-title" title="${t('app.router_channel')}">${routerBadge}${t('app.router_messages')}</div>
                 <div class="session-time"></div>
             </div>
         </div>
     ` : '';
 
     sessionList.innerHTML = routerItemHtml + sessions
-        .filter(s => s.title !== 'Router 消息')
+        .filter(s => s.title !== t('app.router_messages'))
         .sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt))
         .map(session => {
             const cloudBadge = session.cloudChatroomId
                 ? `<span class="session-cloud-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg></span>`
                 : '';
-            const titleText = escapeHtml(session.title || '新会话');
+            const titleText = escapeHtml(session.title || t('app.new_session'));
             const tooltipText = session.cloudChatroomId
-                ? `云端 Agent: ${escapeHtml(session.cloudAgentName || '')} - ${titleText}`
+                ? `Cloud Agent: ${escapeHtml(session.cloudAgentName || '')} - ${titleText}`
                 : titleText;
             return `
             <div class="session-item${session.id === currentSessionId ? ' active' : ''}" 
@@ -821,7 +847,7 @@ function renderSessions(sessions: Session[]): void {
                     <div class="session-title" title="${tooltipText}">${cloudBadge}${titleText}</div>
                     <div class="session-time">${formatTime(session.createdAt)}</div>
                 </div>
-                <button class="session-menu-btn" title="更多操作">
+                <button class="session-menu-btn" title="${t('app.more_actions')}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="12" cy="5" r="2"/>
                         <circle cx="12" cy="12" r="2"/>
@@ -829,7 +855,7 @@ function renderSessions(sessions: Session[]): void {
                     </svg>
                 </button>
                 <div class="session-menu-dropdown hidden">
-                    <div class="session-menu-item session-menu-delete" title="删除会话">
+                    <div class="session-menu-item session-menu-delete" title="${t('misc.delete_session')}">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                         </svg>
@@ -868,7 +894,7 @@ function renderSessions(sessions: Session[]): void {
         el.querySelector('.session-menu-delete')?.addEventListener('click', async (e) => {
             (e as Event).stopPropagation();
             dropdown.classList.add('hidden');
-            if (!confirm('确定删除此会话？此操作不可撤销？')) return;
+            if (!confirm(t('app.confirm_delete_session'))) return;
             try {
                 if (gatewayClient) {
                     await gatewayClient.deleteSession(sessionId);
@@ -880,7 +906,7 @@ function renderSessions(sessions: Session[]): void {
                     await loadSessions();
                 }
             } catch (err) {
-                console.error('删除会话失败:', err);
+                console.error('Delete session failed:', err);
             }
         });
     });
@@ -901,7 +927,7 @@ function renderSessions(sessions: Session[]): void {
 
 // 选择会话
 async function selectSession(sessionId: string): Promise<void> {
-    console.log('[selectSession] 被调用，sessionId:', sessionId, '当前:', currentSessionId);
+    console.log('[selectSession] Called, sessionId:', sessionId, 'current:', currentSessionId);
 
     // 如果调度器视图激活，先切回聊天
     if (schedulerViewActive) {
@@ -960,7 +986,7 @@ async function selectSession(sessionId: string): Promise<void> {
         if (previousSessionId && currentProgressCard && !isProgressFinished) {
             sessionProgressCache.set(previousSessionId, {
                 items: [...progressItems],
-                title: currentProgressCard.querySelector('.progress-card-title')?.textContent || '运行中...',
+                title: currentProgressCard.querySelector('.progress-card-title')?.textContent || t('app.running'),
             });
         }
 
@@ -972,13 +998,13 @@ async function selectSession(sessionId: string): Promise<void> {
         isProgressFinished = !loadingSessions.has(sessionId);
 
         try {
-            console.log('[selectSession] 加载消息、日志和成果物 sessionId:', sessionId);
+            console.log('[selectSession] Loading messages, logs and artifacts sessionId:', sessionId);
             const [messages, logs, savedArtifacts] = await Promise.all([
                 gatewayClient.getMessages(sessionId),
                 gatewayClient.getLogs(sessionId),
                 gatewayClient.getArtifacts(sessionId),
             ]);
-            console.log('[selectSession] 获取到消息', (messages as Message[]).length, '条, 日志:', (logs as LogEntry[]).length, '条, 成果物:', savedArtifacts.length, '条');
+            console.log('[selectSession] Messages:', (messages as Message[]).length, ', logs:', (logs as LogEntry[]).length, ', artifacts:', savedArtifacts.length);
             // 还原附件信息（图片缩略图异步加载）
             const hydratedMessages = await hydrateMessageAttachments(messages);
             renderMessagesWithLogs(hydratedMessages, logs as LogEntry[]);
@@ -1053,8 +1079,8 @@ function renderMessages(messages: Message[]): void {
         messagesContainer.innerHTML = `
             <div class="welcome-message">
                 <div class="welcome-icon">🤖</div>
-                <h3>欢迎使用 OpenFlux</h3>
-                <p>我是你的 AI 助手，可以帮你完成各种任务</p>
+                <h3>${t('chat.welcome_title')}</h3>
+                <p>${t('chat.welcome_desc')}</p>
             </div>
         `;
         return;
@@ -1071,8 +1097,8 @@ function renderMessagesWithLogs(messages: Message[], logs: LogEntry[]): void {
         messagesContainer.innerHTML = `
             <div class="welcome-message">
                 <div class="welcome-icon">🤖</div>
-                <h3>欢迎使用 OpenFlux</h3>
-                <p>我是你的 AI 助手，可以帮你完成各种任务</p>
+                <h3>${t('chat.welcome_title')}</h3>
+                <p>${t('chat.welcome_desc')}</p>
             </div>
         `;
         return;
@@ -1136,7 +1162,7 @@ function renderHistoricalProgressCard(logs: LogEntry[]): string {
     const items = logs.map(log => {
         const logInfo = getToolLog(log.tool, log.args);
         // 历史日志：优先用 resultSummary，否则从 success 推断
-        const detail = log.resultSummary || (log.success ? '✅成功' : '❌失败');
+        const detail = log.resultSummary || '';
         return `<div class="progress-item">
             <span class="progress-icon">${logInfo.icon}</span>
             <span class="progress-text">${escapeHtml(logInfo.text)}</span>
@@ -1152,7 +1178,7 @@ function renderHistoricalProgressCard(logs: LogEntry[]): string {
                         <polyline points="20 6 9 17 4 12"/>
                     </svg>
                 </span>
-                <span class="progress-card-title">完成 (${logs.length} 步)</span>
+                <span class="progress-card-title">${t('app.completed')} (${logs.length} ${t('app.steps')})</span>
                 <span class="progress-card-count">${logs.length}</span>
                 <span class="progress-card-toggle">▾</span>
             </div>
@@ -1628,8 +1654,8 @@ function clearMessages(): void {
     messagesContainer.innerHTML = `
         <div class="welcome-message">
             <div class="welcome-icon">🤖</div>
-            <h3>欢迎使用 OpenFlux</h3>
-            <p>我是你的 AI 助手，可以帮你完成各种任务</p>
+            <h3>${t('chat.welcome_title')}</h3>
+            <p>${t('chat.welcome_desc')}</p>
         </div>
     `;
 }
@@ -1773,7 +1799,7 @@ getCurrentWebview().onDragDropEvent(async (event) => {
         inputContainer.classList.remove('drag-over');
 
         const paths = event.payload.paths;
-        console.log('[拖拽] Tauri drop 事件触发, 文件数:', paths.length);
+        console.log('[DragDrop] Tauri drop event fired, files:', paths.length);
         if (!paths || paths.length === 0) return;
 
         let addedCount = 0;
@@ -1782,10 +1808,10 @@ getCurrentWebview().onDragDropEvent(async (event) => {
             const ext = getFileExt(fileName);
             const fileType = SUPPORTED_DROP_EXTS[ext];
 
-            console.log(`[拖拽] 文件: name=${fileName}, path=${filePath}, ext=${ext}`);
+            console.log(`[DragDrop] File: name=${fileName}, path=${filePath}, ext=${ext}`);
 
             if (!fileType) {
-                console.warn(`[拖拽] 不支持的文件类型: ${ext} (${fileName})`);
+                console.warn(`[DragDrop] Unsupported file type: ${ext} (${fileName})`);
                 continue;
             }
 
@@ -1798,7 +1824,7 @@ getCurrentWebview().onDragDropEvent(async (event) => {
                 const fileStat = await stat(filePath);
                 fileSize = fileStat.size;
             } catch (e) {
-                console.warn(`[拖拽] 获取文件大小失败: ${filePath}`, e);
+                console.warn(`[DragDrop] Get file size failed: ${filePath}`, e);
             }
 
             // 图片文件生成缩略图：读取文件创建 Blob URL（比 asset 协议更可靠）
@@ -1813,7 +1839,7 @@ getCurrentWebview().onDragDropEvent(async (event) => {
                     const blob = new Blob([imgData], { type: mimeMap[ext] || 'image/png' });
                     thumbnailUrl = URL.createObjectURL(blob);
                 } catch (e) {
-                    console.warn('[拖拽] 生成图片预览失败:', e);
+                    console.warn('[DragDrop] Generate image preview failed:', e);
                 }
             }
 
@@ -1828,7 +1854,7 @@ getCurrentWebview().onDragDropEvent(async (event) => {
             addedCount++;
         }
 
-        console.log(`[拖拽] 处理完成: 新增 ${addedCount}, 总计 ${pendingAttachments.length}`);
+        console.log(`[DragDrop] Done: added ${addedCount}, total ${pendingAttachments.length}`);
         if (addedCount > 0) {
             renderAttachmentPreview();
             messageInput.focus();
@@ -2100,7 +2126,7 @@ async function loadServerConfig(): Promise<void> {
         // 记录加载时的沙盒模式，供保存时对比
         lastSavedSandboxMode = loadedSandboxMode;
     } catch (err) {
-        console.error('[Settings] 加载服务端配置失败', err);
+        console.error('[Settings] Load server config failed', err);
     }
 }
 
@@ -2288,22 +2314,22 @@ async function handleClientMcpServers(): Promise<void> {
     try {
         const connectResult = await gatewayClient!.request<any>('mcp.connect', { configs: configs });
         if (!connectResult.success) {
-            console.error('[MCP] 客户端 MCP 连接失败:', connectResult.error);
+            console.error('[MCP] Client MCP connection failed:', connectResult.error);
             return;
         }
 
         // mcpConnect 返回中包含工具列表
         const tools = connectResult.tools;
         if (!tools?.length) {
-            console.warn('[MCP] 客户端 MCP 无可用工具');
+            console.warn('[MCP] Client MCP has no available tools');
             return;
         }
 
         // 注册到 Gateway
         gatewayClient.registerClientMcpTools(tools);
-        console.log(`[MCP] 已注册 ${tools.length} 个客户端 MCP 工具到 Gateway`);
+        console.log(`[MCP] Registered ${tools.length} client MCP tools to Gateway`);
     } catch (err) {
-        console.error('[MCP] 客户端 MCP 处理失败:', err);
+        console.error('[MCP] Client MCP processing failed:', err);
     }
 }
 
@@ -2312,7 +2338,7 @@ function openMcpForm(editIndex = -1): void {
     mcpEditingIndex = editIndex;
     if (editIndex >= 0) {
         const s = mcpServers[editIndex];
-        mcpFormTitle.textContent = '编辑 MCP Server';
+        mcpFormTitle.textContent = t('mcp.edit_title');
         mcpFormName.value = s.name;
         mcpFormLocation.value = s.location || 'server';
         mcpFormTransport.value = s.transport;
@@ -2321,7 +2347,7 @@ function openMcpForm(editIndex = -1): void {
         mcpFormEnv.value = Object.entries(s.env || {}).map(([k, v]) => `${k}=${v} `).join(' ');
         mcpFormUrl.value = s.url || '';
     } else {
-        mcpFormTitle.textContent = '添加 MCP Server';
+        mcpFormTitle.textContent = t('mcp.add_title');
         mcpFormName.value = '';
         mcpFormLocation.value = 'server';
         mcpFormTransport.value = 'stdio';
@@ -2400,7 +2426,7 @@ serverSaveBtn.addEventListener('click', async () => {
     if (!gatewayClient) return;
 
     serverSaveBtn.disabled = true;
-    serverSaveHint.textContent = '保存中...';
+    serverSaveHint.textContent = t('settings.saving');
     serverSaveHint.className = 'settings-save-hint';
 
     try {
@@ -2486,7 +2512,7 @@ serverSaveBtn.addEventListener('click', async () => {
         const result = await gatewayClient.updateServerConfig(updates as any);
 
         if (result.success) {
-            serverSaveHint.textContent = result.message || '✅ 已保存';
+            serverSaveHint.textContent = result.message || t('common.save_success');
             serverSaveHint.className = 'settings-save-hint success';
 
             // 处理客户端 MCP：连接本机并注册到 Gateway
@@ -2503,7 +2529,7 @@ serverSaveBtn.addEventListener('click', async () => {
                     if (typeof (invoke as any).bind(null, 'app_relaunch') === 'function') {
                         invoke('app_relaunch');
                     } else {
-                        alert('请手动关闭并重新启动应用以使更改生效。');
+                        alert(t('settings.restart_hint'));
                     }
                     return;
                 }
@@ -2512,11 +2538,11 @@ serverSaveBtn.addEventListener('click', async () => {
             // 重新加载以刷新状态
             setTimeout(() => loadServerConfig(), 800);
         } else {
-            serverSaveHint.textContent = result.message || '保存失败';
+            serverSaveHint.textContent = result.message || t('common.save_failed');
             serverSaveHint.className = 'settings-save-hint error';
         }
     } catch (err) {
-        serverSaveHint.textContent = '保存失败: ' + (err instanceof Error ? err.message : String(err));
+        serverSaveHint.textContent = t('settings.save_failed_detail', err instanceof Error ? err.message : String(err));
         serverSaveHint.className = 'settings-save-hint error';
     } finally {
         serverSaveBtn.disabled = false;
@@ -2556,7 +2582,7 @@ async function loadAgentConfig(): Promise<void> {
         };
         renderAgentModelCards();
     } catch (err) {
-        console.error('[Settings] 加载全局角色设定失败:', err);
+        console.error('[Settings] Load global agent settings failed:', err);
     }
 }
 
@@ -2659,7 +2685,7 @@ const skillAddBtn = document.getElementById('skill-add-btn')!;
 function renderSkills(): void {
     skillsListEl.innerHTML = '';
     if (skillsData.length === 0) {
-        skillsListEl.innerHTML = '<div class="skills-empty">暂无技能，点击下方按钮添加</div>';
+        skillsListEl.innerHTML = '<div class="skills-empty">' + t('agent.no_skills') + '</div>';
         return;
     }
     for (const skill of skillsData) {
@@ -2779,7 +2805,7 @@ agentSaveBtn.addEventListener('click', async () => {
     if (!gatewayClient) return;
 
     agentSaveBtn.disabled = true;
-    agentSaveHint.textContent = '保存中...';
+    agentSaveHint.textContent = t('agent.saving');
     agentSaveHint.className = 'settings-save-hint';
 
     try {
@@ -2804,14 +2830,14 @@ agentSaveBtn.addEventListener('click', async () => {
         if (result.success) {
             skillsData = validSkills; // 同步过滤结果
             renderSkills();
-            agentSaveHint.textContent = result.message || '✅ 已保存';
+            agentSaveHint.textContent = result.message || t('common.save_success');
             agentSaveHint.className = 'settings-save-hint success';
         } else {
-            agentSaveHint.textContent = result.message || '保存失败';
+            agentSaveHint.textContent = result.message || t('common.save_failed');
             agentSaveHint.className = 'settings-save-hint error';
         }
     } catch (err) {
-        agentSaveHint.textContent = '保存失败: ' + (err instanceof Error ? err.message : String(err));
+        agentSaveHint.textContent = t('agent.save_failed_detail', err instanceof Error ? err.message : String(err));
         agentSaveHint.className = 'settings-save-hint error';
     } finally {
         agentSaveBtn.disabled = false;
@@ -2888,7 +2914,7 @@ outputPathBrowse.addEventListener('click', async () => {
         try {
             await gatewayClient.updateSettings({ outputPath: selected });
         } catch (err) {
-            console.error('[Settings] 更新输出目录失败:', err);
+            console.error('[Settings] Update output dir failed:', err);
         }
     }
 });
@@ -2901,7 +2927,7 @@ outputPathReset.addEventListener('click', async () => {
             outputPathInput.value = result.outputPath || '';
             outputPathInput.title = result.outputPath || '';
         } catch (err) {
-            console.error('[Settings] 重置输出目录失败:', err);
+            console.error('[Settings] Reset output dir failed:', err);
         }
     }
 });
@@ -2929,7 +2955,7 @@ debugModeToggle.addEventListener('change', () => {
             timestamp: new Date().toISOString(),
             level: 'info',
             module: 'Client',
-            message: 'Debug 模式已开启，正在接收 Gateway 日志...',
+            message: 'Debug mode enabled, receiving Gateway logs...',
         });
     } else {
         // 关闭 debug 面板
@@ -3032,7 +3058,7 @@ function appendDebugLogEntry(entry: { timestamp: string; level: string; module: 
     const levelClass = ['info', 'warn', 'error', 'debug'].includes(entry.level) ? entry.level : 'info';
     const metaStr = entry.meta ? ` ${JSON.stringify(entry.meta)} ` : '';
 
-    div.innerHTML = `< span class="debug-log-time" > ${timeStr} </span>`
+    div.innerHTML = `<span class="debug-log-time">${timeStr}</span>`
         + `<span class="debug-log-level ${levelClass}">${entry.level.toUpperCase()}</span>`
         + `<span class="debug-log-module">[${entry.module}]</span>`
         + `<span class="debug-log-message">${escapeHtml(entry.message)}${metaStr ? ' <span style="opacity:0.5">' + escapeHtml(metaStr) + '</span>' : ''}</span>`;
@@ -3106,7 +3132,7 @@ function playTaskCompleteSound(): void {
         // 自动释放 AudioContext
         setTimeout(() => ctx.close().catch(() => { }), 1500);
     } catch (e) {
-        console.warn('[Sound] 提示音播放失败', e);
+        console.warn('[Sound] Notification sound playback failed', e);
     }
 }
 
@@ -3158,7 +3184,7 @@ function handleGatewayProgress(event: GatewayProgressEvent): void {
         if (artifacts) {
             const list = Array.isArray(artifacts) ? artifacts : [artifacts];
             for (const a of list) {
-                addArtifact(a).catch(err => console.error('[Artifact] 添加失败:', err));
+                addArtifact(a).catch(err => console.error('[Artifact] Add failed:', err));
             }
         }
     } else if (progressEvent.type === 'iteration') {
@@ -3169,7 +3195,7 @@ function handleGatewayProgress(event: GatewayProgressEvent): void {
         appendStreamingToken(event.token);
     } else if (progressEvent.type === 'complete') {
         // 聊天完成 — 即时视觉反馈
-        console.log('[Gateway Progress Event] 聊天完成');
+        console.log('[Gateway Progress Event] Chat completed');
         hideTyping();
         finishProgressCard();
         finishStreamingMessage();
@@ -3199,7 +3225,7 @@ function handleGatewayProgress(event: GatewayProgressEvent): void {
                         addArtifact(a as Artifact, false).catch(() => { });
                     }
                 }
-            }).catch(err => console.warn('[Artifacts] 加载失败:', err));
+            }).catch(err => console.warn('[Artifacts] Load failed:', err));
         }
     }
 }
@@ -3258,12 +3284,12 @@ async function addArtifact(artifact: Artifact, persist = true): Promise<void> {
         try {
             const exists = await invoke<boolean>('file_exists', { filePath: artifact.path });
             if (!exists) {
-                console.warn('[Artifact] 文件不存在，跳过:', artifact.path);
+                console.warn('[Artifact] File not found, skipping:', artifact.path);
                 addedArtifactPaths.delete(normalizePath(artifact.path)); // 释放路径，允许后续重新检测
                 return;
             }
         } catch (err) {
-            console.warn('[Artifact] 文件存在性检查失败', err);
+            console.warn('[Artifact] File existence check failed', err);
         }
     }
 
@@ -3275,7 +3301,7 @@ async function addArtifact(artifact: Artifact, persist = true): Promise<void> {
     if (persist && currentSessionId && gatewayClient) {
         const { type, path, filename, content, language, size, timestamp } = artifact;
         gatewayClient.saveArtifact(currentSessionId, { type, path, filename, content, language, size, timestamp })
-            .catch(err => console.error('[Artifact] 保存失败:', err));
+            .catch(err => console.error('[Artifact] Save failed:', err));
     }
 
     const item = document.createElement('div');
@@ -3387,7 +3413,7 @@ async function openFilePreview(filePath: string): Promise<void> {
     filePreviewIcon.textContent = getFileIcon(filename);
     filePreviewName.textContent = filename;
     filePreviewSize.textContent = '';
-    filePreviewBody.innerHTML = '<div class="file-preview-loading">加载中...</div>';
+    filePreviewBody.innerHTML = '<div class="file-preview-loading">' + t('preview.loading') + '</div>';
 
     try {
         const result = await invoke<any>('file_read', { filePath: filePath });
@@ -3804,7 +3830,7 @@ function setProgressWhitehole(): void {
             hole.classList.add('whitehole');
         }
         const titleEl = currentProgressCard.querySelector('.progress-card-title') as HTMLElement;
-        titleEl.textContent = '正在生成...';
+        titleEl.textContent = t('chat.generating_title');
     }
 }
 
@@ -3989,60 +4015,50 @@ function getToolResultSummary(tool: string, args?: Record<string, unknown>, resu
     if (!result || typeof result !== 'object') return '';
     const r = result as Record<string, unknown>;
 
-    // 通用错误检查
-    if (r.error) return `❌错误: ${String(r.error).slice(0, 50)}`;
+    // Error check — keep error info but without emoji
+    if (r.error) return String(r.error).slice(0, 60);
 
     switch (tool) {
         case 'filesystem': {
             const action = args?.action as string;
             if (action === 'write' && r.success) {
                 const size = r.size || r.bytesWritten;
-                return size ? `✅已写入 ${formatBytes(size as number)}` : '?写入成功';
+                return size ? formatBytes(size as number) : '';
             }
             if (action === 'read' && typeof r.content === 'string') {
-                return `?读取 ${(r.content.length / 1000).toFixed(1)}K 字符`;
+                return `${(r.content.length / 1000).toFixed(1)}K`;
             }
-            if ((action === 'exists' || action === 'info') && r.exists !== undefined) {
-                if (!r.exists) return '❌文件不存在';
-                const size = r.size as number;
-                return size ? `✅存在 (${formatBytes(size)})` : '✅文件存在';
-            }
-            if (r.success) return '✅成功';
             return '';
         }
         case 'web_search': {
             const results = r.results as unknown[];
-            return results ? `🔍${results.length} 条结果` : '';
+            return results ? `${results.length} results` : '';
         }
         case 'web_fetch': {
             const content = r.content as string || r.text as string;
-            if (content) return `📄获取 ${(content.length / 1000).toFixed(1)}K 字符`;
-            return r.success ? '✅成功' : '';
+            if (content) return `${(content.length / 1000).toFixed(1)}K`;
+            return '';
         }
         case 'process':
         case 'opencode': {
             const exitCode = r.exitCode ?? r.code;
-            if (exitCode === 0) return '✅执行成功';
-            if (exitCode !== undefined) return `⚠️退出码 ${exitCode}`;
-            if (r.pid) return `✅进程已启动 (PID: ${r.pid})`;
+            if (exitCode !== undefined && exitCode !== 0) return `exit ${exitCode}`;
+            if (r.pid) return `PID: ${r.pid}`;
             return '';
         }
         case 'browser': {
             const action = args?.action as string;
-            if (action === 'navigate') return r.title ? `📄${String(r.title).slice(0, 30)}` : '✅页面已加载';
-            if (action === 'screenshot') return '📸截图完成';
+            if (action === 'navigate') return r.title ? String(r.title).slice(0, 30) : '';
             return '';
         }
         case 'spawn': {
             if (typeof r === 'object' && r.output) {
                 const out = String(r.output);
-                return `📝${out.slice(0, 40)}${out.length > 40 ? '...' : ''}`;
+                return out.slice(0, 40) + (out.length > 40 ? '...' : '');
             }
             return '';
         }
         default:
-            if (r.success === true) return '✅成功';
-            if (r.success === false) return '❌失败';
             return '';
     }
 }
@@ -4435,7 +4451,7 @@ async function loadSchedulerData(): Promise<void> {
         cachedTasks = await gatewayClient.getSchedulerTasks();
         renderSchedulerTasks(cachedTasks);
     } catch (error) {
-        console.error('[Scheduler] 加载数据失败:', error);
+        console.error('[Scheduler] Load data failed:', error);
     }
 }
 
@@ -4446,7 +4462,7 @@ async function loadTaskRuns(taskId: string): Promise<void> {
         const runs = await gatewayClient.getSchedulerRuns(taskId, 50);
         renderInlineRuns(runs);
     } catch (error) {
-        console.error('[Scheduler] 加载执行记录失败:', error);
+        console.error('[Scheduler] Load run history failed:', error);
     }
 }
 
@@ -4563,7 +4579,7 @@ function renderInlineDetail(taskId: string): void {
                 renderInlineDetail(taskId);
                 await loadTaskRuns(taskId);
             } catch (error) {
-                console.error(`[Scheduler] ${action} 失败:`, error);
+                console.error(`[Scheduler] ${action} failed:`, error);
             }
         });
     });
@@ -4572,7 +4588,7 @@ function renderInlineDetail(taskId: string): void {
 // 渲染内联执行记录
 function renderInlineRuns(runs: TaskRunView[]): void {
     if (runs.length === 0) {
-        schedulerInlineRuns.innerHTML = '<div class="empty-state" style="padding:24px 0;opacity:0.4;">暂无执行记录</div>';
+        schedulerInlineRuns.innerHTML = '<div class="empty-state" style="padding:24px 0;opacity:0.4;">' + t('scheduler.no_runs_inline') + '</div>';
         return;
     }
 
@@ -4789,9 +4805,9 @@ async function initVoice(): Promise<void> {
             if (voiceNotice) voiceNotice.style.display = 'none';
         }
 
-        console.log('[Voice] 语音状态:', voiceStatus);
+        console.log('[Voice] Voice status:', voiceStatus);
     } catch (error) {
-        console.warn('[Voice] 获取语音状态失败:', error);
+        console.warn('[Voice] Get voice status failed:', error);
     }
 }
 
@@ -4812,7 +4828,7 @@ recorder.setStateCallback((state: RecordingState, duration?: number) => {
             recordingText.textContent = `录音中... ${duration ?? 0}s`;
             break;
         case 'processing':
-            recordingText.textContent = '识别中...';
+            recordingText.textContent = t('chat.recognizing');
             break;
     }
 });
@@ -4871,7 +4887,7 @@ micBtn.addEventListener('click', async () => {
         try {
             await recorder.start();
         } catch (error) {
-            console.error('[Voice] 录音启动失败:', error);
+            console.error('[Voice] Recording start failed:', error);
             setStatus('麦克风访问失败', 'error');
             setTimeout(() => setStatus('就绪', 'ready'), 3000);
         }
@@ -4882,7 +4898,7 @@ micBtn.addEventListener('click', async () => {
             setStatus('识别中...', 'running');
             const result = await gatewayClient!.request<any>('voice.transcribe', { audioData: audioData });
             if (result.error) {
-                console.error('[Voice] 识别失败:', result.error);
+                console.error('[Voice] Recognition failed:', result.error);
                 setStatus('识别失败', 'error');
                 setTimeout(() => setStatus('就绪', 'ready'), 3000);
             } else if (result.text) {
@@ -4898,7 +4914,7 @@ micBtn.addEventListener('click', async () => {
                 setTimeout(() => setStatus('就绪', 'ready'), 2000);
             }
         } catch (error) {
-            console.error('[Voice] 录音/识别失败:', error);
+            console.error('[Voice] Recording/recognition failed:', error);
             setStatus('语音处理失败', 'error');
             setTimeout(() => setStatus('就绪', 'ready'), 3000);
         }
@@ -4949,7 +4965,7 @@ ttsVoiceSelect.addEventListener('change', async () => {
         await gatewayClient!.request<any>('voice.set-voice', { voice: voice });
         localStorage.setItem('openflux-tts-voice', voice);
     } catch (error) {
-        console.error('[Voice] 切换语音失败:', error);
+        console.error('[Voice] Toggle voice failed:', error);
     }
 });
 
@@ -4973,28 +4989,28 @@ function setVoiceOverlayState(state: 'idle' | 'recording' | 'processing' | 'answ
     voiceOverlay.setAttribute('data-state', state);
     switch (state) {
         case 'idle':
-            voiceStatusText.textContent = '点击开始对话';
+            voiceStatusText.textContent = t('voice.click_start');
             voiceBtnMic.classList.remove('hidden');
             voiceBtnStop.classList.add('hidden');
             ambientSound.stop();
             bargeInDetector.stop();
             break;
         case 'recording':
-            voiceStatusText.textContent = '正在聆听...';
+            voiceStatusText.textContent = t('voice.listening');
             voiceBtnMic.classList.add('hidden');
             voiceBtnStop.classList.remove('hidden');
             ambientSound.stop();
             bargeInDetector.stop();
             break;
         case 'processing':
-            voiceStatusText.textContent = '识别中...';
+            voiceStatusText.textContent = t('voice.recognizing');
             voiceBtnMic.classList.remove('hidden');
             voiceBtnStop.classList.add('hidden');
             ambientSound.start();
             bargeInDetector.stop();
             break;
         case 'answering':
-            voiceStatusText.textContent = '思考中...';
+            voiceStatusText.textContent = t('voice.thinking');
             voiceBtnMic.classList.remove('hidden');
             voiceBtnStop.classList.add('hidden');
             if (!ambientSound.getIsPlaying()) ambientSound.start();
@@ -5002,7 +5018,7 @@ function setVoiceOverlayState(state: 'idle' | 'recording' | 'processing' | 'answ
             bargeInDetector.start();
             break;
         case 'speaking':
-            voiceStatusText.textContent = '回复中... (说话可打断)';
+            voiceStatusText.textContent = t('voice.replying');
             voiceBtnMic.classList.remove('hidden');
             voiceBtnStop.classList.add('hidden');
             ambientSound.stop();
@@ -5051,7 +5067,7 @@ function enterVoiceMode(): void {
     // 注册语音打断回调：TTS 播放中检测到用户说话 ?打断
     bargeInDetector.setCallback(() => {
         if (voiceModeActive) {
-            console.log('[VoiceMode] 语音打断触发');
+            console.log('[VoiceMode] Voice barge-in triggered');
             interruptVoiceResponse();
         }
     });
@@ -5129,7 +5145,7 @@ async function startVoiceRound(): Promise<void> {
             minDurationMs: 800,   // 至少 0.8 秒
         });
     } catch (error) {
-        console.error('[VoiceMode] 录音启动失败:', error);
+        console.error('[VoiceMode] Recording start failed:', error);
         setVoiceOverlayState('idle');
     }
 }
@@ -5179,7 +5195,7 @@ async function finishVoiceRound(): Promise<void> {
             if (voiceModeActive) startVoiceRound();
         }, 800);
     } catch (error) {
-        console.error('[VoiceMode] 语音对话轮次失败:', error);
+        console.error('[VoiceMode] Voice conversation turn failed:', error);
         if (voiceModeActive) {
             setVoiceOverlayState('idle');
         }
@@ -5310,7 +5326,7 @@ async function loadMemoryStats() {
         memoryStatDim.textContent = String(stats.vectorDim ?? '-');
         memoryStatModel.textContent = stats.embeddingModel ?? '-';
     } catch (e) {
-        console.error('加载记忆统计失败', e);
+        console.error('Load memory stats failed', e);
     }
 }
 
@@ -5324,8 +5340,8 @@ async function loadMemoryList(page: number = 1) {
         renderMemoryList(result.items);
         renderMemoryPagination(result.total, result.page, result.pageSize);
     } catch (e) {
-        memoryListEl.innerHTML = '<div class="memory-empty-state">加载失败</div>';
-        console.error('加载记忆列表失败', e);
+        memoryListEl.innerHTML = '<div class="memory-empty-state">' + t('memory.load_failed') + '</div>';
+        console.error('Load memory list failed', e);
     }
 }
 
@@ -5338,8 +5354,8 @@ async function searchMemory(query: string) {
         renderMemoryList(result.items, true);
         memoryPagination.classList.add('hidden');
     } catch (e) {
-        memoryListEl.innerHTML = '<div class="memory-empty-state">搜索失败</div>';
-        console.error('搜索记忆失败', e);
+        memoryListEl.innerHTML = '<div class="memory-empty-state">' + t('memory.search_failed') + '</div>';
+        console.error('Search memory failed', e);
     }
 }
 
@@ -5488,7 +5504,7 @@ async function loadDistillationData() {
         const sched = stats.scheduler || {};
         if (!sched.enabled) {
             distillSchedulerIndicator.className = 'distill-status-dot off';
-            distillSchedulerText.textContent = '调度器未启用';
+            distillSchedulerText.textContent = t('memory.scheduler_disabled');
         } else if (sched.isRunning) {
             distillSchedulerIndicator.className = 'distill-status-dot running';
             distillSchedulerText.textContent = `蒸馏进行中...`;
@@ -5512,7 +5528,7 @@ async function loadDistillationData() {
         // 加载卡片列表
         await loadDistillCards(distillCurrentLayer);
     } catch (e) {
-        console.error('加载蒸馏数据失败', e);
+        console.error('Load distillation data failed', e);
     }
 }
 
@@ -5526,7 +5542,7 @@ async function loadDistillCards(layer?: string) {
         console.log('[Distill] cards count:', distillCardsData.length, 'total:', distillCardsTotal);
         renderDistillCards();
     } catch (e) {
-        console.error('加载卡片列表失败', e);
+        console.error('Load card list failed', e);
     }
 }
 
@@ -5600,7 +5616,7 @@ distillCardsList.addEventListener('click', async (e: MouseEvent) => {
                 await Promise.all([loadDistillCards(distillCurrentLayer), loadDistillationData()]);
             }
         } catch (err) {
-            console.error('删除卡片失败', err);
+            console.error('Delete card failed', err);
         }
         return;
     }
@@ -5629,7 +5645,7 @@ distillCardsRefresh.addEventListener('click', async () => {
 distillSaveBtn.addEventListener('click', async () => {
     if (!gatewayClient) return;
     distillSaveBtn.disabled = true;
-    distillSaveBtn.textContent = '保存中...';
+    distillSaveBtn.textContent = t('memory.distill_saving');
     try {
         const config = {
             enabled: distillEnabled.checked,
@@ -5641,16 +5657,16 @@ distillSaveBtn.addEventListener('click', async () => {
         };
         const result = await gatewayClient.distillationUpdateConfig(config);
         if (result.success) {
-            distillSaveBtn.textContent = '✅ 已保存';
-            setTimeout(() => { distillSaveBtn.textContent = '保存配置'; }, 2000);
+            distillSaveBtn.textContent = t('memory.distill_saved');
+            setTimeout(() => { distillSaveBtn.textContent = t('common.save_config'); }, 2000);
             await loadDistillationData();
         } else {
-            distillSaveBtn.textContent = '❌ ' + (result.message || '保存失败');
-            setTimeout(() => { distillSaveBtn.textContent = '保存配置'; }, 3000);
+            distillSaveBtn.textContent = t('memory.distill_save_failed', result.message || t('misc.save_failed'));
+            setTimeout(() => { distillSaveBtn.textContent = t('common.save_config'); }, 3000);
         }
     } catch (e) {
-        distillSaveBtn.textContent = '保存失败';
-        setTimeout(() => { distillSaveBtn.textContent = '保存配置'; }, 3000);
+        distillSaveBtn.textContent = t('misc.save_failed');
+        setTimeout(() => { distillSaveBtn.textContent = t('common.save_config'); }, 3000);
     } finally {
         distillSaveBtn.disabled = false;
     }
@@ -5661,21 +5677,21 @@ distillTriggerBtn.addEventListener('click', async () => {
     if (!gatewayClient) return;
     if (!confirm('确定要立即执行记忆蒸馏？此操作不受时段限制。')) return;
     distillTriggerBtn.disabled = true;
-    distillTriggerBtn.textContent = '⏳ 蒸馏中...';
+    distillTriggerBtn.textContent = t('memory.distill_running');
     try {
         const result = await gatewayClient.distillationTrigger();
         if (result.success) {
-            distillTriggerBtn.textContent = '✅ 蒸馏完成';
+            distillTriggerBtn.textContent = t('memory.distill_done');
             await loadDistillationData();
         } else {
-            distillTriggerBtn.textContent = '❌ ' + (result.message || '蒸馏失败');
+            distillTriggerBtn.textContent = t('memory.distill_failed', result.message || '');
         }
     } catch (e) {
-        console.error('手动蒸馏失败:', e);
-        distillTriggerBtn.textContent = '❌ ' + (e instanceof Error ? e.message : String(e));
+        console.error('Manual distillation failed:', e);
+        distillTriggerBtn.textContent = t('memory.distill_failed', e instanceof Error ? e.message : String(e));
     } finally {
         setTimeout(() => {
-            distillTriggerBtn.textContent = '⚡ 手动蒸馏';
+            distillTriggerBtn.textContent = t('memory.manual_distill');
             distillTriggerBtn.disabled = false;
         }, 3000);
     }
@@ -5706,9 +5722,9 @@ function updateInputForCloudSession(): void {
     if (micBtn) micBtn.classList.toggle('disabled', isCloudAndNotLoggedIn);
     if (voiceModeBtn) voiceModeBtn.classList.toggle('disabled', isCloudAndNotLoggedIn);
     if (isCloudAndNotLoggedIn) {
-        messageInput.placeholder = '当前为云端 Agent 会话，请先登录 OpenFlux...';
+        messageInput.placeholder = t('chat.cloud_login_hint');
     } else {
-        messageInput.placeholder = '问问 OpenFlux...';
+        messageInput.placeholder = t('chat.input_placeholder');
     }
 }
 
@@ -5745,12 +5761,12 @@ openfluxModalLoginBtn.addEventListener('click', async () => {
     const username = openfluxModalUsername.value.trim();
     const password = openfluxModalPassword.value;
     if (!username || !password) {
-        openfluxModalHint.textContent = '请输入用户名和密码';
+        openfluxModalHint.textContent = t('login.enter_credentials');
         openfluxModalHint.className = 'settings-save-hint error';
         return;
     }
     openfluxModalLoginBtn.disabled = true;
-    openfluxModalHint.textContent = '登录中...';
+    openfluxModalHint.textContent = t('login.saving');
     openfluxModalHint.className = 'settings-save-hint';
     try {
         const res = await gatewayClient.openfluxLogin(username, password);
@@ -5764,7 +5780,7 @@ openfluxModalLoginBtn.addEventListener('click', async () => {
             openfluxModalHint.className = 'settings-save-hint error';
         }
     } catch (e) {
-        openfluxModalHint.textContent = '登录失败: ' + (e instanceof Error ? e.message : String(e));
+        openfluxModalHint.textContent = t('login.failed', e instanceof Error ? e.message : String(e));
         openfluxModalHint.className = 'settings-save-hint error';
     } finally {
         openfluxModalLoginBtn.disabled = false;
@@ -5849,7 +5865,7 @@ function switchSidebarMode(mode: 'chat' | 'agent'): void {
 
 async function loadSidebarAgents(): Promise<void> {
     if (!gatewayClient) return;
-    sidebarAgentList.innerHTML = '<div class="memory-empty-state" style="font-size:0.8rem;padding:16px;">加载中...</div>';
+    sidebarAgentList.innerHTML = '<div class="memory-empty-state" style="font-size:0.8rem;padding:16px;">' + t('common.loading') + '</div>';
     try {
         const agents = await gatewayClient.openfluxAgents();
         cachedOpenFluxAgents = agents || [];
@@ -5862,7 +5878,7 @@ async function loadSidebarAgents(): Promise<void> {
 function renderSidebarAgents(): void {
     sidebarAgentList.innerHTML = '';
     if (cachedOpenFluxAgents.length === 0) {
-        sidebarAgentList.innerHTML = '<div class="memory-empty-state" style="font-size:0.8rem;padding:16px;">暂无 Agent</div>';
+        sidebarAgentList.innerHTML = '<div class="memory-empty-state" style="font-size:0.8rem;padding:16px;">' + t('cloud.no_agents') + '</div>';
         return;
     }
     for (const agent of cachedOpenFluxAgents) {
@@ -5888,7 +5904,7 @@ async function startCloudChat(appId: number, agentName: string, chatroomId?: num
         if (!chatroomId) {
             const info = await gatewayClient.openfluxAgentInfo(appId);
             if (!info || !info.chatroomId) {
-                alert('该 Agent 无可用聊天室');
+                alert(t('cloud.agent_no_room'));
                 return;
             }
             chatroomId = info.chatroomId;
@@ -5916,8 +5932,8 @@ async function startCloudChat(appId: number, agentName: string, chatroomId?: num
             createdAt: Date.now(),
         });
     } catch (e) {
-        console.error('[Cloud] 发起云端聊天失败:', e);
-        alert('发起云端聊天失败: ' + (e instanceof Error ? e.message : String(e)));
+        console.error('[Cloud] Start cloud chat failed:', e);
+        alert(t('cloud.chat_failed', e instanceof Error ? e.message : String(e)));
     }
 }
 
@@ -5977,12 +5993,12 @@ async function switchToRouterSession(): Promise<void> {
             const hydratedMessages = await hydrateMessageAttachments(messages);
             renderMessagesWithLogs(hydratedMessages, logs as LogEntry[]);
         } catch (error) {
-            console.error('[Router] 加载会话消息失败:', error);
-            messagesContainer.innerHTML = '<div class="empty-state" style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:0.85rem;">等待入站消息...</div>';
+            console.error('[Router] Load session messages failed:', error);
+            messagesContainer.innerHTML = '<div class="empty-state" style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:0.85rem;">' + t('cloud.waiting_messages') + '</div>';
         }
     } else {
         currentSessionId = null;
-        messagesContainer.innerHTML = '<div class="empty-state" style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:0.85rem;">等待入站消息...</div>';
+        messagesContainer.innerHTML = '<div class="empty-state" style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.35);font-size:0.85rem;">' + t('cloud.waiting_messages') + '</div>';
     }
 
     // 主动查询最新绑定状态后再决定是否显示绑定 UI
@@ -6022,22 +6038,22 @@ async function handleRouterBind(): Promise<void> {
     const btn = document.getElementById('router-bind-btn') as HTMLButtonElement;
     const code = codeInput?.value?.trim();
     if (!code) {
-        if (statusEl) statusEl.textContent = '❗ 请输入配对码';
+        if (statusEl) statusEl.textContent = t('router.enter_code');
         return;
     }
 
     btn.disabled = true;
-    if (statusEl) statusEl.textContent = '⭐ 发送中...';
+    if (statusEl) statusEl.textContent = t('router.sending');
 
     try {
         const result = await gatewayClient.routerBind(code);
         if (result.success) {
-            if (statusEl) statusEl.textContent = '⏳ 配对码已提交，等待对方提交相同配对码...';
+            if (statusEl) statusEl.textContent = t('router.waiting_pair');
         } else {
-            if (statusEl) statusEl.textContent = '❌ ' + (result.message || '绑定失败');
+            if (statusEl) statusEl.textContent = t('router.bind_failed', result.message || '');
         }
     } catch (err) {
-        if (statusEl) statusEl.textContent = '❌ 绑定失败';
+        if (statusEl) statusEl.textContent = t('router.bind_error');
     } finally {
         btn.disabled = false;
     }
@@ -6083,7 +6099,7 @@ async function loadRouterConfig(): Promise<void> {
             if (appUserIdInput) appUserIdInput.value = uid;
         }
     } catch (err) {
-        console.error('[Router] 加载配置失败:', err);
+        console.error('[Router] Load config failed:', err);
     }
 }
 
@@ -6245,7 +6261,7 @@ function initRouterListeners(): void {
         managedLlmQuota = cfg.quota || null;
         if (cfg.currentSource) currentLlmSource = cfg.currentSource;
         updateManagedLlmUI();
-        console.log('[LLM] 托管配置更新:', { available: cfg.available, provider: cfg.provider, model: cfg.model });
+        console.log('[LLM] Hosted config updated:', { available: cfg.available, provider: cfg.provider, model: cfg.model });
     });
 
     // 连接后查询当前 LLM source
@@ -6283,7 +6299,7 @@ function initRouterListeners(): void {
             if (payload.bound) {
                 routerBound = true;
                 hideRouterBindUI();
-                console.log('[Router] 已绑定平台用户');
+                console.log('[Router] Platform user bound');
             } else {
                 routerBound = false;
                 if (isRouterSession) showRouterBindUI();
@@ -6380,7 +6396,7 @@ function updateManagedLlmUI(): void {
                 await gatewayClient.setLlmSource(source);
                 currentLlmSource = source;
             } catch (err) {
-                console.error('切换 LLM 来源失败:', err);
+                console.error('Switch LLM source failed:', err);
                 toggle.checked = !toggle.checked; // 回退
             }
         });

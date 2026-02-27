@@ -125,7 +125,7 @@ export class MemoryManager extends EventEmitter {
         });
 
         insertTx();
-        this.logger.info(`已保存记忆: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`, { id: entry.id });
+        this.logger.info(`Memory saved: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`, { id: entry.id });
 
         // 发射事件供蒸馏系统监听 (fire-and-forget)
         this.emit('memoryAdded', { id: entry.id, content });
@@ -165,16 +165,16 @@ export class MemoryManager extends EventEmitter {
                 LIMIT ?
             `).all(new Float32Array(queryEmbedding), limit * 2) as { rowid: number; distance: number }[];
 
-            this.logger.info('向量搜索结果', { count: vectorResults.length, results: vectorResults.map(r => ({ rowid: r.rowid, distance: r.distance, score: 1 - r.distance })) });
+            this.logger.info('Vector search results', { count: vectorResults.length, results: vectorResults.map(r => ({ rowid: r.rowid, distance: r.distance, score: 1 - r.distance })) });
             for (const res of vectorResults) {
                 const score = 1 - res.distance;
                 if (score >= minScore) {
                     scores.set(res.rowid, { score, type: 'vector' });
                 }
             }
-            this.logger.info('向量搜索通过阈值', { minScore, passedCount: scores.size });
+            this.logger.info('Vector search passed threshold', { minScore, passedCount: scores.size });
         } catch (e) {
-            this.logger.warn('向量搜索失败，仅使用关键词搜索', { error: String(e) });
+            this.logger.warn('Vector search failed, using keyword search only', { error: String(e) });
         }
 
         // 2. 关键词搜索 (FTS5 trigram)
@@ -198,7 +198,7 @@ export class MemoryManager extends EventEmitter {
                 }
             }
         } catch (e) {
-            this.logger.warn('FTS 搜索失败', { error: String(e) });
+            this.logger.warn('FTS search failed', { error: String(e) });
         }
 
         // 3. 兜底：如果向量 + FTS 都没结果，用 LIKE 模糊搜索
@@ -215,7 +215,7 @@ export class MemoryManager extends EventEmitter {
                     scores.set(row.rowid, { score: 0.5, type: 'keyword' });
                 }
             } catch (e) {
-                this.logger.warn('LIKE 搜索失败', { error: String(e) });
+                this.logger.warn('LIKE search failed', { error: String(e) });
             }
         }
 
@@ -307,9 +307,9 @@ export class MemoryManager extends EventEmitter {
 
         // 记录调试信息 (Transparency)
         if (searchResults.length > 0) {
-            this.logger.info(`已检索到 ${searchResults.length} 条相关记忆 (Query: "${query}")`);
+            this.logger.info(`Retrieved ${searchResults.length} relevant memories (Query: "${query}")`);
         } else {
-            this.logger.debug(`未找到相关记忆 (Query: "${query}")`);
+            this.logger.debug(`No relevant memories found (Query: "${query}")`);
         }
 
         // 4. 追加分层卡片上下文 (蒸馏系统, 独立于原有记忆)
@@ -363,7 +363,7 @@ export class MemoryManager extends EventEmitter {
 
         const result = deleteTx();
         if (result) {
-            this.logger.info(`已删除记忆: ${id}`);
+            this.logger.info(`Memory deleted: ${id}`);
         }
         return result as boolean;
     }
@@ -379,7 +379,7 @@ export class MemoryManager extends EventEmitter {
             this.db.prepare("INSERT INTO memories_fts(memories_fts) VALUES('rebuild')").run();
         });
         clearTx();
-        this.logger.info('已清空所有记忆');
+        this.logger.info('All memories cleared');
     }
 
     /**

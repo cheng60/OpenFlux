@@ -112,7 +112,7 @@ async function loadReadability(): Promise<any> {
         try {
             readabilityModule = await import('@mozilla/readability');
         } catch {
-            log.warn('未安装 @mozilla/readability，Readability 提取不可用');
+            log.warn('@mozilla/readability not installed, Readability extraction unavailable');
             return null;
         }
     }
@@ -124,7 +124,7 @@ async function loadTurndown(): Promise<any> {
         try {
             turndownModule = await import('turndown');
         } catch {
-            log.warn('未安装 turndown，HTML → Markdown 转换不可用');
+            log.warn('turndown not installed, HTML to Markdown conversion unavailable');
             return null;
         }
     }
@@ -147,7 +147,7 @@ async function extractReadableContent(params: {
     try {
         jsdomModule = await import('jsdom');
     } catch {
-        log.warn('未安装 jsdom，Readability 提取不可用');
+        log.warn('jsdom not installed, Readability extraction unavailable');
         return null;
     }
 
@@ -190,7 +190,7 @@ async function extractReadableContent(params: {
             title: article.title || undefined,
         };
     } catch (err: any) {
-        log.warn('Readability 提取失败', { error: err.message });
+        log.warn('Readability extraction failed', { error: err.message });
         return null;
     }
 }
@@ -247,10 +247,10 @@ async function runWebFetch(params: {
     try {
         parsedUrl = new URL(params.url);
     } catch {
-        throw new Error('无效的 URL：必须是 http 或 https');
+        throw new Error('Invalid URL: must be http or https');
     }
     if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        throw new Error('无效的 URL：必须是 http 或 https');
+        throw new Error('Invalid URL: must be http or https');
     }
 
     const start = Date.now();
@@ -271,7 +271,7 @@ async function runWebFetch(params: {
         });
     } catch (fetchErr: any) {
         clearTimeout(timer);
-        throw new Error(`页面获取失败: ${fetchErr.message}`);
+        throw new Error(`Page fetch failed: ${fetchErr.message}`);
     } finally {
         clearTimeout(timer);
     }
@@ -282,11 +282,11 @@ async function runWebFetch(params: {
         // 检测反爬拦截
         if (detectAntiBot(res.status, body)) {
             throw new Error(
-                `页面被反爬机制拦截 (HTTP ${res.status})，该网站需要浏览器环境访问。` +
-                `\n请使用 browser 工具访问此 URL: ${params.url}`
+                `Page blocked by anti-bot mechanism (HTTP ${res.status}), this website requires a browser environment.` +
+                `\nPlease use the browser tool to access this URL: ${params.url}`
             );
         }
-        throw new Error(`页面获取失败 (HTTP ${res.status}): ${body.slice(0, 300) || res.statusText}`);
+        throw new Error(`Page fetch failed (HTTP ${res.status}): ${body.slice(0, 300) || res.statusText}`);
     }
 
     // 解析内容
@@ -302,8 +302,8 @@ async function runWebFetch(params: {
         // 检测：200 但内容是反爬页面（某些站点返回 200 + JS 挑战）
         if (body.length < 5000 && detectAntiBot(200, body)) {
             throw new Error(
-                `页面返回了反爬验证页面，该网站需要浏览器环境访问。` +
-                `\n请使用 browser 工具访问此 URL: ${params.url}`
+                `Page returned an anti-bot verification page, this website requires a browser environment.` +
+                `\nPlease use the browser tool to access this URL: ${params.url}`
             );
         }
 
@@ -386,21 +386,21 @@ export function createWebFetchTool(options?: WebFetchToolOptions): Tool {
 
     return {
         name: 'web_fetch',
-        description: '获取并提取网页内容（HTML → Markdown/纯文本）。用于读取网页文章、文档等。如果遇到反爬拦截，请改用 browser 工具访问。参数: url(必填), extractMode(可选,markdown/text), maxChars(可选,最大字符数)',
+        description: 'Fetch and extract web page content (HTML → Markdown/plain text). Used for reading web articles, documents, etc. If anti-bot blocking is encountered, use the browser tool instead. Params: url (required), extractMode (optional, markdown/text), maxChars (optional, max character count)',
         parameters: {
             url: {
                 type: 'string',
-                description: '要获取的 HTTP/HTTPS URL',
+                description: 'The HTTP/HTTPS URL to fetch',
                 required: true,
             },
             extractMode: {
                 type: 'string',
-                description: '提取模式: markdown(默认,保留格式) 或 text(纯文本)',
+                description: 'Extraction mode: markdown (default, preserves formatting) or text (plain text)',
                 enum: ['markdown', 'text'],
             },
             maxChars: {
                 type: 'number',
-                description: '最大返回字符数（超出则截断），默认 50000',
+                description: 'Maximum characters to return (truncated if exceeded), default 50000',
             },
         },
         execute: async (args: Record<string, unknown>): Promise<ToolResult> => {
@@ -425,7 +425,7 @@ export function createWebFetchTool(options?: WebFetchToolOptions): Tool {
                     readabilityEnabled,
                 });
 
-                log.info('页面获取完成', {
+                log.info('Page fetch completed', {
                     url,
                     extractor: result.extractor,
                     length: result.length,
@@ -434,7 +434,7 @@ export function createWebFetchTool(options?: WebFetchToolOptions): Tool {
 
                 return jsonResult(result);
             } catch (err: any) {
-                log.error('页面获取失败', { error: err.message });
+                log.error('Page fetch failed', { error: err.message });
                 return errorResult(err.message);
             }
         },

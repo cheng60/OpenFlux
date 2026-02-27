@@ -69,14 +69,14 @@ export class ToolRegistry {
     register(tool: Tool): void {
         // 工具声明了 available: false 则跳过注册（前置条件不满足，如 API Key 缺失）
         if (tool.available === false) {
-            this.logger.warn(`工具跳过注册（前置条件不满足）: ${tool.name}`);
+            this.logger.warn(`Tool skipped (prerequisite not met): ${tool.name}`);
             return;
         }
         if (this.tools.has(tool.name)) {
-            this.logger.warn(`工具已存在，将被覆盖: ${tool.name}`);
+            this.logger.warn(`Tool already exists, will be overridden: ${tool.name}`);
         }
         this.tools.set(tool.name, tool);
-        this.logger.debug(`工具已注册: ${tool.name}`);
+        this.logger.debug(`Tool registered: ${tool.name}`);
     }
 
     /**
@@ -85,7 +85,7 @@ export class ToolRegistry {
     unregister(name: string): boolean {
         const removed = this.tools.delete(name);
         if (removed) {
-            this.logger.debug(`工具已移除: ${name}`);
+            this.logger.debug(`Tool removed: ${name}`);
         }
         return removed;
     }
@@ -117,18 +117,18 @@ export class ToolRegistry {
     async executeTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
         const tool = this.getTool(name);
         if (!tool) {
-            return { success: false, error: `工具不存在: ${name}` };
+            return { success: false, error: `Tool not found: ${name}` };
         }
 
         // 不在这里输出日志，由调用方（AgentLoop）负责日志
 
         try {
             const result = await tool.execute(args);
-            this.logger.debug(`工具执行完成: ${name}`, { success: result.success });
+            this.logger.debug(`Tool execution complete: ${name}`, { success: result.success });
             return result;
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
-            this.logger.error(`工具执行失败: ${name}`, { error: errorMsg });
+            this.logger.error(`Tool execution failed: ${name}`, { error: errorMsg });
             return { success: false, error: errorMsg };
         }
     }
@@ -188,7 +188,7 @@ export class ToolRegistry {
         // 邮件工具
         this.register(createEmailTool(options.email));
 
-        this.logger.info(`默认工具已注册，共 ${this.tools.size} 个工具`);
+        this.logger.info(`Default tools registered, total ${this.tools.size} tools`);
     }
 
     /**
@@ -212,7 +212,7 @@ export class ToolRegistry {
         }
 
         this.logger.info(
-            `工具过滤: ${allTools.length} → ${filtered.length} 个` +
+            `Tool filtering: ${allTools.length} → ${filtered.length}` +
             (agentTools?.profile ? ` (profile: ${agentTools.profile})` : '')
         );
 
@@ -228,12 +228,12 @@ export class ToolRegistry {
         for (const tool of this.tools.values()) {
             const paramList = Object.entries(tool.parameters)
                 .map(([key, param]) => {
-                    const required = param.required ? '(必填)' : '(可选)';
+                    const required = param.required ? '(required)' : '(optional)';
                     return `  - ${key}: ${param.description} ${required}`;
                 })
                 .join('\n');
 
-            descriptions.push(`## ${tool.name}\n${tool.description}\n参数:\n${paramList}`);
+            descriptions.push(`## ${tool.name}\n${tool.description}\nParameters:\n${paramList}`);
         }
 
         return descriptions.join('\n\n');

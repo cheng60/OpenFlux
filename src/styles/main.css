@@ -243,7 +243,53 @@
 }
 
 [data-theme="light"] .debug-panel {
-  background: #fff;
+  background: #f8f9fa;
+}
+
+[data-theme="light"] .debug-panel-header {
+  background: #eef0f2;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .debug-resize-handle::after {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .debug-resize-handle:hover,
+[data-theme="light"] .debug-resize-handle.dragging {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+[data-theme="light"] .debug-log-entry:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .debug-log-time {
+  color: #888;
+}
+
+[data-theme="light"] .debug-log-level.info {
+  color: #0277bd;
+}
+
+[data-theme="light"] .debug-log-level.warn {
+  color: #e65100;
+}
+
+[data-theme="light"] .debug-log-level.error {
+  color: #c62828;
+}
+
+[data-theme="light"] .debug-log-level.debug {
+  color: #666;
+}
+
+[data-theme="light"] .debug-log-module {
+  color: #7c3aed;
+}
+
+[data-theme="light"] .debug-log-message {
+  color: #1a1a1a;
 }
 
 [data-theme="light"] .file-preview-modal-content {

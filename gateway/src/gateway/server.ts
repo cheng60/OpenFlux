@@ -111,7 +111,7 @@ export function createGatewayServer(config: GatewayConfig) {
         };
 
         clients.set(clientId, client);
-        log.info(`客户端连接: ${clientId}`);
+        log.info(`Client connected: ${clientId}`);
 
         send(client, {
             type: 'welcome',
@@ -121,9 +121,9 @@ export function createGatewayServer(config: GatewayConfig) {
         ws.on('message', (data: Buffer) => handleMessage(client, data.toString()));
         ws.on('close', () => {
             clients.delete(clientId);
-            log.info(`客户端断开: ${clientId}`);
+            log.info(`Client disconnected: ${clientId}`);
         });
-        ws.on('error', (error: Error) => log.error(`客户端错误: ${clientId}`, { error }));
+        ws.on('error', (error: Error) => log.error(`Client error: ${clientId}`, { error }));
     }
 
     /**
@@ -134,7 +134,7 @@ export function createGatewayServer(config: GatewayConfig) {
             const message: GatewayMessage = JSON.parse(data);
 
             if (!client.authenticated && message.type !== 'auth') {
-                send(client, { type: 'error', payload: { message: '未认证' } });
+                send(client, { type: 'error', payload: { message: 'Not authenticated' } });
                 return;
             }
 
@@ -159,18 +159,18 @@ export function createGatewayServer(config: GatewayConfig) {
                     break;
                 case 'debug.subscribe':
                     client.debugSubscribed = true;
-                    log.info(`客户端 ${client.id} 订阅 debug 日志`);
+                    log.info(`Client ${client.id} subscribed to debug logs`);
                     break;
                 case 'debug.unsubscribe':
                     client.debugSubscribed = false;
-                    log.info(`客户端 ${client.id} 取消订阅 debug 日志`);
+                    log.info(`Client ${client.id} unsubscribed from debug logs`);
                     break;
                 default:
-                    send(client, { type: 'error', payload: { message: `未知类型: ${message.type}` } });
+                    send(client, { type: 'error', payload: { message: `Unknown type: ${message.type}` } });
             }
         } catch (error) {
-            log.error('消息处理失败', { error });
-            send(client, { type: 'error', payload: { message: '处理失败' } });
+            log.error('Message processing failed', { error });
+            send(client, { type: 'error', payload: { message: 'Processing failed' } });
         }
     }
 
@@ -201,7 +201,7 @@ export function createGatewayServer(config: GatewayConfig) {
         const messageId = message.id || crypto.randomUUID();
 
         if (!payload?.input && !payload?.attachments?.length) {
-            send(client, { type: 'error', payload: { message: '缺少 input' } });
+            send(client, { type: 'error', payload: { message: 'Missing input' } });
             return;
         }
 
@@ -256,7 +256,7 @@ export function createGatewayServer(config: GatewayConfig) {
     function handleSessionsGet(client: GatewayClient, message: GatewayMessage): void {
         const payload = message.payload as { sessionId: string };
         if (!payload?.sessionId) {
-            send(client, { type: 'error', payload: { message: '缺少 sessionId' } });
+            send(client, { type: 'error', payload: { message: 'Missing sessionId' } });
             return;
         }
 
@@ -294,7 +294,7 @@ export function createGatewayServer(config: GatewayConfig) {
                 type: 'agents.list',
                 id: message.id,
                 payload: {
-                    agents: [{ id: 'default', name: '通用助手', description: '', default: true, profile: 'full' }],
+                    agents: [{ id: 'default', name: 'General Assistant', description: '', default: true, profile: 'full' }],
                 },
             });
         }
@@ -315,7 +315,7 @@ export function createGatewayServer(config: GatewayConfig) {
                 wss = new WebSocketServer({ port });
                 wss.on('connection', handleConnection);
                 wss.on('listening', () => {
-                    log.info(`Gateway 启动: ws://localhost:${port}`);
+                    log.info(`Gateway started: ws://localhost:${port}`);
                     resolve();
                 });
             });
@@ -325,7 +325,7 @@ export function createGatewayServer(config: GatewayConfig) {
             return new Promise((resolve) => {
                 if (wss) {
                     wss.close(() => {
-                        log.info('Gateway 停止');
+                        log.info('Gateway stopped');
                         resolve();
                     });
                 } else {

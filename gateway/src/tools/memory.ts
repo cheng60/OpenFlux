@@ -13,22 +13,22 @@ export function createMemoryTool(options: MemoryToolOptions): Tool {
 
     return {
         name: 'memory_tool',
-        description: '【CRITICAL】长期记忆工具。当用户提供**个人信息、偏好、配置、计划**等重要内容时，**必须立即调用**此工具保存(action="save")。当用户询问"我以前说过..."或需要上下文时，**必须调用**此工具搜索(action="search")。不要只在回复中确认，必须实际执行保存操作！',
+        description: '[CRITICAL] Long-term memory tool. When the user provides **personal info, preferences, configurations, plans** or other important content, you **MUST immediately call** this tool to save (action="save"). When the user asks "I previously said..." or needs context, you **MUST call** this tool to search (action="search"). Do not just acknowledge in your reply, you MUST actually execute the save operation!',
         parameters: {
             action: {
                 type: 'string',
-                description: '操作类型: "save" (保存记忆) 或 "search" (搜索记忆)',
+                description: 'Action type: "save" (save memory) or "search" (search memory)',
                 enum: ['save', 'search'],
                 required: true,
             },
             content: {
                 type: 'string',
-                description: '对于 save 操作，为要保存的记忆内容；对于 search 操作，为搜索关键词',
+                description: 'For save: the memory content to save; for search: the search keyword',
                 required: true,
             },
             tags: {
                 type: 'string',
-                description: '对于 save 操作，可选的标签列表（逗号分隔），如 "user_profile,preference"',
+                description: 'For save: optional tag list (comma-separated), e.g., "user_profile,preference"',
                 required: false,
             }
         },
@@ -37,34 +37,34 @@ export function createMemoryTool(options: MemoryToolOptions): Tool {
             const content = args.content as string;
 
             if (!content) {
-                return { success: false, error: '缺少内容 (content)' };
+                return { success: false, error: 'Missing content parameter' };
             }
 
             try {
                 if (action === 'save') {
                     const tags = args.tags ? (args.tags as string).split(',').map(t => t.trim()) : undefined;
                     await memoryManager.add(content, { tags });
-                    return { success: true, data: `已保存记忆: "${content}"` };
+                    return { success: true, data: `Memory saved: "${content}"` };
                 } else if (action === 'search') {
                     const results = await memoryManager.search(content, { limit: 5, includeSource: true });
 
                     if (results.length === 0) {
-                        return { success: true, data: '未找到相关记忆' };
+                        return { success: true, data: 'No relevant memories found' };
                     }
 
                     const formatted = results.map((r, i) => {
-                        const source = r.sourceFile ? `[来源: ${r.sourceFile}]` : '';
+                        const source = r.sourceFile ? `[source: ${r.sourceFile}]` : '';
                         const date = new Date(r.createdAt).toLocaleDateString();
-                        return `${i + 1}. ${r.content} ${source} (时间: ${date}, 相关度: ${r.score.toFixed(2)})`;
+                        return `${i + 1}. ${r.content} ${source} (date: ${date}, relevance: ${r.score.toFixed(2)})`;
                     }).join('\n');
 
-                    return { success: true, data: `找到以下相关记忆:\n${formatted}` };
+                    return { success: true, data: `Found related memories:\n${formatted}` };
                 } else {
-                    return { success: false, error: `不支持的操作: ${action}` };
+                    return { success: false, error: `Unsupported action: ${action}` };
                 }
             } catch (error) {
                 const msg = error instanceof Error ? error.message : String(error);
-                return { success: false, error: `记忆操作失败: ${msg}` };
+                return { success: false, error: `Memory operation failed: ${msg}` };
             }
         },
     };

@@ -13,42 +13,42 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
     // ========== 1. 项目初始化 ==========
     {
         id: 'project-init',
-        name: '项目初始化',
-        description: '创建标准项目目录结构、配置文件和基础代码框架。适用于从零开始搭建 Node.js/Python 项目。',
-        intent: '用户想从零开始创建一个新项目，需要生成标准目录结构和配置文件模板',
-        triggers: ['初始化项目', '创建项目', '新建项目', 'init project', 'create project', 'scaffold'],
+        name: 'Project Initialization',
+        description: 'Create standard project directory structure, config files, and basic code framework. For scaffolding Node.js/Python projects from scratch.',
+        intent: 'User wants to create a new project from scratch, needs to generate standard directory structure and config file templates',
+        triggers: ['初始化项目', '创建项目', '新建项目', 'init project', 'create project', 'scaffold', 'initialize project'],
         parameters: [
-            { name: 'projectName', description: '项目名称', type: 'string', required: true },
-            { name: 'projectDir', description: '项目根目录路径', type: 'string', required: true },
-            { name: 'type', description: '项目类型: node 或 python', type: 'string', required: false, default: 'node' },
+            { name: 'projectName', description: 'Project name', type: 'string', required: true },
+            { name: 'projectDir', description: 'Project root directory path', type: 'string', required: true },
+            { name: 'type', description: 'Project type: node or python', type: 'string', required: false, default: 'node' },
         ],
         steps: [
             {
                 id: 'create-readme',
-                name: '创建 README',
-                description: '创建项目 README.md',
+                name: 'Create README',
+                description: 'Create project README.md',
                 tool: 'filesystem',
                 args: {
                     action: 'write',
                     path: '{{projectDir}}/README.md',
-                    content: '# {{projectName}}\n\n> 项目描述\n\n## 快速开始\n\n```bash\nnpm install\nnpm run dev\n```\n',
+                    content: '# {{projectName}}\n\n> Project description\n\n## Quick Start\n\n```bash\nnpm install\nnpm run dev\n```\n',
                 },
             },
             {
                 id: 'create-entry',
-                name: '创建入口文件',
-                description: '创建 src/index.ts 入口',
+                name: 'Create entry file',
+                description: 'Create src/index.ts entry',
                 tool: 'filesystem',
                 args: {
                     action: 'write',
                     path: '{{projectDir}}/src/index.ts',
-                    content: '/**\n * {{projectName}} 入口\n */\n\nconsole.log("{{projectName}} started");\n',
+                    content: '/**\n * {{projectName}} entry\n */\n\nconsole.log("{{projectName}} started");\n',
                 },
             },
             {
                 id: 'create-package',
-                name: '创建 package.json',
-                description: '创建项目配置文件',
+                name: 'Create package.json',
+                description: 'Create project config file',
                 tool: 'filesystem',
                 args: {
                     action: 'write',
@@ -58,8 +58,8 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
             },
             {
                 id: 'create-tsconfig',
-                name: '创建 tsconfig.json',
-                description: '创建 TypeScript 配置',
+                name: 'Create tsconfig.json',
+                description: 'Create TypeScript config',
                 tool: 'filesystem',
                 args: {
                     action: 'write',
@@ -69,8 +69,8 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
             },
             {
                 id: 'create-gitignore',
-                name: '创建 .gitignore',
-                description: '创建 Git 忽略规则',
+                name: 'Create .gitignore',
+                description: 'Create Git ignore rules',
                 tool: 'filesystem',
                 args: {
                     action: 'write',
@@ -84,26 +84,26 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
     // ========== 2. 系统化 Bug 修复 ==========
     {
         id: 'bug-fix',
-        name: '系统化 Bug 修复',
-        description: '按"定位→分析→修复→验证"四步流程修复 Bug。适用于有明确文件路径和错误描述的场景。',
-        intent: '用户报告了具体的Bug或错误，需要系统性地定位、分析、修复和验证',
-        triggers: ['修复bug', '修复错误', 'fix bug', 'debug', '排查问题', '系统化修复'],
+        name: 'Systematic Bug Fix',
+        description: 'Fix bugs following "Locate→Analyze→Fix→Verify" four-step process. Suitable for scenarios with clear file paths and error descriptions.',
+        intent: 'User reported a specific bug or error, needs systematic locating, analyzing, fixing, and verification',
+        triggers: ['修复bug', '修复错误', 'fix bug', 'debug', '排查问题', '系统化修复', 'troubleshoot'],
         parameters: [
-            { name: 'description', description: 'Bug 描述', type: 'string', required: true },
-            { name: 'filePath', description: '相关文件路径', type: 'string', required: true },
+            { name: 'description', description: 'Bug description', type: 'string', required: true },
+            { name: 'filePath', description: 'Related file path', type: 'string', required: true },
         ],
         steps: [
             {
                 id: 'read-source',
-                name: '读取源码',
-                description: '读取问题相关的源文件',
+                name: 'Read source code',
+                description: 'Read source files related to the issue',
                 tool: 'filesystem',
                 args: { action: 'read', path: '{{filePath}}' },
             },
             {
                 id: 'search-error',
-                name: '搜索错误模式',
-                description: '在相关目录中搜索错误关键词',
+                name: 'Search error patterns',
+                description: 'Search for error keywords in related directories',
                 tool: 'process',
                 args: {
                     action: 'run',
@@ -113,8 +113,8 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
             },
             {
                 id: 'check-deps',
-                name: '检查依赖关系',
-                description: '查看文件的 import/require 依赖',
+                name: 'Check dependencies',
+                description: 'View file import/require dependencies',
                 tool: 'process',
                 args: {
                     action: 'run',
@@ -128,33 +128,33 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
     // ========== 3. 代码审查 ==========
     {
         id: 'code-review',
-        name: '代码审查',
-        description: '对指定文件进行结构化代码审查：读取代码→检查结构→分析依赖→汇总问题。',
-        intent: '用户想对已有代码进行质量审查、评审或检查，发现潜在问题',
-        triggers: ['代码审查', '代码评审', 'code review', 'review code', '检查代码'],
+        name: 'Code Review',
+        description: 'Perform structured code review on specified files: read code→check structure→analyze dependencies→summarize issues.',
+        intent: 'User wants to perform quality review, audit, or inspection on existing code to find potential issues',
+        triggers: ['代码审查', '代码评审', 'code review', 'review code', '检查代码', 'inspect code'],
         parameters: [
-            { name: 'targetPath', description: '要审查的文件路径', type: 'string', required: true },
+            { name: 'targetPath', description: 'File path to review', type: 'string', required: true },
         ],
         steps: [
             {
                 id: 'read-target',
-                name: '读取目标文件',
-                description: '读取待审查的文件内容',
+                name: 'Read target file',
+                description: 'Read target file contents for review',
                 tool: 'filesystem',
                 args: { action: 'read', path: '{{targetPath}}' },
             },
             {
                 id: 'check-info',
-                name: '获取文件信息',
-                description: '检查文件大小和修改时间',
+                name: 'Get file info',
+                description: 'Check file size and modification time',
                 tool: 'filesystem',
                 args: { action: 'info', path: '{{targetPath}}' },
                 onFailure: 'skip',
             },
             {
                 id: 'check-structure',
-                name: '检查目录结构',
-                description: '查看文件所在目录的整体结构',
+                name: 'Check directory structure',
+                description: 'View overall structure of the file\'s directory',
                 tool: 'process',
                 args: {
                     action: 'run',
@@ -168,41 +168,41 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
     // ========== 4. 部署前检查 ==========
     {
         id: 'deploy-check',
-        name: '部署前检查',
-        description: '执行部署前的标准检查清单：依赖检查→构建测试→配置验证→生成报告。',
-        intent: '用户准备部署或发布项目，需要执行上线前的标准检查流程',
-        triggers: ['部署检查', '发布前检查', 'deploy check', 'pre-deploy', '上线检查'],
+        name: 'Pre-deployment Check',
+        description: 'Execute pre-deployment standard checklist: dependency check→build test→config validation→generate report.',
+        intent: 'User is preparing to deploy or release a project, needs to execute standard pre-release checks',
+        triggers: ['部署检查', '发布前检查', 'deploy check', 'pre-deploy', '上线检查', 'release check'],
         parameters: [
-            { name: 'projectDir', description: '项目根目录', type: 'string', required: true },
+            { name: 'projectDir', description: 'Project root directory', type: 'string', required: true },
         ],
         steps: [
             {
                 id: 'check-package',
-                name: '检查依赖配置',
-                description: '读取 package.json 确认依赖完整',
+                name: 'Check dependency config',
+                description: 'Read package.json to verify dependencies are complete',
                 tool: 'filesystem',
                 args: { action: 'read', path: '{{projectDir}}/package.json' },
             },
             {
                 id: 'check-env',
-                name: '检查环境配置',
-                description: '确认 .env.example 存在',
+                name: 'Check environment config',
+                description: 'Verify .env.example exists',
                 tool: 'filesystem',
                 args: { action: 'exists', path: '{{projectDir}}/.env.example' },
                 onFailure: 'skip',
             },
             {
                 id: 'check-gitignore',
-                name: '检查 Git 忽略规则',
-                description: '确认 .gitignore 包含必要规则',
+                name: 'Check Git ignore rules',
+                description: 'Verify .gitignore contains necessary rules',
                 tool: 'filesystem',
                 args: { action: 'read', path: '{{projectDir}}/.gitignore' },
                 onFailure: 'skip',
             },
             {
                 id: 'try-build',
-                name: '尝试构建',
-                description: '执行项目构建命令验证可编译',
+                name: 'Try build',
+                description: 'Execute project build command to verify compilability',
                 tool: 'process',
                 args: {
                     action: 'run',
@@ -217,26 +217,26 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
     // ========== 5. 文件批量处理 ==========
     {
         id: 'batch-file-ops',
-        name: '文件批量处理',
-        description: '对指定目录下的文件进行批量操作：扫描目录→列出文件→执行操作。适用于批量重命名、格式化等。',
-        intent: '用户需要对大量文件进行统一的批量操作，如重命名、格式转换、分类整理等',
-        triggers: ['批量处理', '批量操作', 'batch', '批量文件', '批量重命名'],
+        name: 'Batch File Processing',
+        description: 'Batch operations on files in a specified directory: scan directory→list files→execute operations. Suitable for batch renaming, formatting, etc.',
+        intent: 'User needs to perform unified batch operations on a large number of files, such as renaming, format conversion, categorization, etc.',
+        triggers: ['批量处理', '批量操作', 'batch', '批量文件', '批量重命名', 'batch process'],
         parameters: [
-            { name: 'targetDir', description: '目标目录路径', type: 'string', required: true },
-            { name: 'pattern', description: '文件匹配模式', type: 'string', required: false, default: '*' },
+            { name: 'targetDir', description: 'Target directory path', type: 'string', required: true },
+            { name: 'pattern', description: 'File matching pattern', type: 'string', required: false, default: '*' },
         ],
         steps: [
             {
                 id: 'scan-dir',
-                name: '扫描目录',
-                description: '列出目标目录下的所有文件',
+                name: 'Scan directory',
+                description: 'List all files in the target directory',
                 tool: 'filesystem',
                 args: { action: 'list', path: '{{targetDir}}' },
             },
             {
                 id: 'search-pattern',
-                name: '搜索匹配文件',
-                description: '按模式搜索匹配的文件',
+                name: 'Search matching files',
+                description: 'Search files matching the pattern',
                 tool: 'process',
                 args: {
                     action: 'run',
@@ -250,42 +250,42 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
     // ========== 6. 日报生成 ==========
     {
         id: 'daily-report',
-        name: '日报生成',
-        description: '扫描指定目录下的工作文件，提取关键信息并生成 Word 格式日报文档。',
-        intent: '用户需要根据当天的工作内容自动生成工作日报或工作总结文档',
-        triggers: ['日报', '写日报', '生成日报', 'daily report', '工作日报', '今日总结'],
+        name: 'Daily Report Generation',
+        description: 'Scan work files in the specified directory, extract key information and generate a Word format daily report.',
+        intent: 'User needs to automatically generate a daily work report or summary based on the day\'s work',
+        triggers: ['日报', '写日报', '生成日报', 'daily report', '工作日报', '今日总结', 'generate report'],
         parameters: [
-            { name: 'workDir', description: '工作目录（扫描此目录下的文件）', type: 'string', required: true },
-            { name: 'outputPath', description: '日报输出路径（.docx）', type: 'string', required: true },
-            { name: 'author', description: '日报作者', type: 'string', required: false, default: 'OpenFlux' },
+            { name: 'workDir', description: 'Work directory (scans files in this directory)', type: 'string', required: true },
+            { name: 'outputPath', description: 'Report output path (.docx)', type: 'string', required: true },
+            { name: 'author', description: 'Report author', type: 'string', required: false, default: 'OpenFlux' },
         ],
         steps: [
             {
                 id: 'scan-work-dir',
-                name: '扫描工作目录',
-                description: '列出工作目录下的所有文件',
+                name: 'Scan work directory',
+                description: 'List all files in the work directory',
                 tool: 'filesystem',
                 args: { action: 'list', path: '{{workDir}}' },
             },
             {
                 id: 'read-recent-files',
-                name: '读取最近文件',
-                description: '读取最近修改的文件内容（由 Agent 根据时间筛选）',
+                name: 'Read recent files',
+                description: 'Read recently modified file contents (Agent filters by time)',
                 tool: 'filesystem',
                 args: { action: 'list', path: '{{workDir}}', recursive: true },
                 onFailure: 'skip',
             },
             {
                 id: 'create-report',
-                name: '生成日报文档',
-                description: '基于收集的信息创建 Word 日报',
+                name: 'Generate report document',
+                description: 'Create Word daily report based on collected information',
                 tool: 'office',
                 args: {
                     action: 'word',
                     subAction: 'create',
                     filePath: '{{outputPath}}',
-                    title: '工作日报 - {{author}}',
-                    paragraphs: ['（Agent 将根据扫描结果填充具体内容）'],
+                    title: 'Daily Report - {{author}}',
+                    paragraphs: ['(Agent will fill in specific content based on scan results)'],
                 },
             },
         ],
@@ -294,32 +294,32 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
     // ========== 7. 数据提取 ==========
     {
         id: 'data-extract',
-        name: '数据提取',
-        description: '从多个 Excel/CSV 文件中提取数据并合并到一个新的 Excel 文件中。',
-        intent: '用户有多个数据文件需要汇总合并，或需要从多个表格中提取特定数据整合到一起',
-        triggers: ['数据提取', '合并Excel', 'Excel合并', 'data extract', '提取数据', '合并表格', '数据汇总'],
+        name: 'Data Extraction',
+        description: 'Extract data from multiple Excel/CSV files and merge into a new Excel file.',
+        intent: 'User has multiple data files to consolidate, or needs to extract specific data from multiple tables',
+        triggers: ['数据提取', '合并Excel', 'Excel合并', 'data extract', '提取数据', '合并表格', '数据汇总', 'merge data'],
         parameters: [
-            { name: 'sourceDir', description: '源文件所在目录', type: 'string', required: true },
-            { name: 'outputPath', description: '输出文件路径（.xlsx）', type: 'string', required: true },
+            { name: 'sourceDir', description: 'Source files directory', type: 'string', required: true },
+            { name: 'outputPath', description: 'Output file path (.xlsx)', type: 'string', required: true },
         ],
         steps: [
             {
                 id: 'list-sources',
-                name: '列出源文件',
-                description: '扫描目录下的 Excel/CSV 文件',
+                name: 'List source files',
+                description: 'Scan Excel/CSV files in the directory',
                 tool: 'filesystem',
                 args: { action: 'list', path: '{{sourceDir}}' },
             },
             {
                 id: 'create-output',
-                name: '创建输出文件',
-                description: '创建合并后的 Excel 文件（Agent 将逐个读取源文件并写入）',
+                name: 'Create output file',
+                description: 'Create merged Excel file (Agent will read source files and write one by one)',
                 tool: 'office',
                 args: {
                     action: 'excel',
                     subAction: 'create',
                     filePath: '{{outputPath}}',
-                    sheet: '汇总',
+                    sheet: 'Summary',
                 },
             },
         ],
@@ -328,25 +328,25 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
     // ========== 8. 文件整理 ==========
     {
         id: 'file-organize',
-        name: '文件整理',
-        description: '按文件类型自动整理指定目录：扫描所有文件→按扩展名分类→移动到对应子目录（如 文档/图片/视频 等）。',
-        intent: '用户的某个目录很乱，想按文件类型自动归类整理（如图片归图片文件夹、文档归文档文件夹）',
-        triggers: ['文件整理', '整理文件', '文件分类', 'organize files', '归类文件', '清理目录'],
+        name: 'File Organization',
+        description: 'Auto-organize files in a directory by type: scan all files→categorize by extension→move to corresponding subdirectories (e.g., Documents/Images/Videos).',
+        intent: 'User\'s directory is messy, wants to auto-categorize files by type (e.g., images to images folder, docs to docs folder)',
+        triggers: ['文件整理', '整理文件', '文件分类', 'organize files', '归类文件', '清理目录', 'sort files'],
         parameters: [
-            { name: 'targetDir', description: '要整理的目标目录', type: 'string', required: true },
+            { name: 'targetDir', description: 'Target directory to organize', type: 'string', required: true },
         ],
         steps: [
             {
                 id: 'scan-files',
-                name: '扫描文件',
-                description: '列出目标目录下的所有文件',
+                name: 'Scan files',
+                description: 'List all files in the target directory',
                 tool: 'filesystem',
                 args: { action: 'list', path: '{{targetDir}}' },
             },
             {
                 id: 'check-existing',
-                name: '检查已有分类目录',
-                description: '检查是否已有分类子目录（如 文档/图片/视频）',
+                name: 'Check existing category directories',
+                description: 'Check if category subdirectories exist (e.g., Documents/Images/Videos)',
                 tool: 'filesystem',
                 args: { action: 'list', path: '{{targetDir}}' },
                 onFailure: 'skip',
@@ -357,26 +357,26 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
     // ========== 9. 学习技能 ==========
     {
         id: 'learn-skill',
-        name: '学习新技能',
+        name: 'Learn New Skill',
         description: [
-            '从线上技能库（OpenClaw/ClawHub）搜索、下载并安装新技能，将其转化为本地可执行的工作流。',
-            '安装后的技能可通过 workflow.list 查看，通过 workflow.execute 执行。',
-            '支持通过关键词搜索或直接提供 GitHub 链接安装。找不到现成技能时，会基于自身知识自创技能。',
+            'Search, download, and install new skills from online skill libraries (OpenClaw/ClawHub), converting them into locally executable workflows.',
+            'Installed skills can be viewed via workflow.list and executed via workflow.execute.',
+            'Supports keyword search or direct GitHub link installation. If no existing skill is found, it will self-create based on its own knowledge.',
         ].join('\n'),
-        intent: '用户希望永久掌握某个领域的能力/方法论，将其固化为可复用的标准流程，而不仅仅是临时查一次资料',
+        intent: 'User wants to permanently master a certain area\'s capability/methodology, solidifying it into a reusable standard process',
         triggers: [
             '学习技能', '学技能', '安装技能', '下载技能',
             'learn skill', 'install skill', '学一下', '学会',
-            '获取技能', '添加技能', '新技能',
+            '获取技能', '添加技能', '新技能', 'add skill',
         ],
         parameters: [
-            { name: 'keyword', description: '技能关键词（如 "deep research"、"ppt"）或 SKILL.md 的完整 GitHub URL', type: 'string', required: true },
+            { name: 'keyword', description: 'Skill keyword (e.g., "deep research", "ppt") or full GitHub URL of SKILL.md', type: 'string', required: true },
         ],
         steps: [
             {
                 id: 'search-skill',
-                name: '搜索技能',
-                description: '在 GitHub 上搜索匹配的 OpenClaw Skill',
+                name: 'Search skill',
+                description: 'Search for matching OpenClaw Skill on GitHub',
                 type: 'llm',
                 prompt: [
                     '用户想学习与"{{keyword}}"相关的技能。',
@@ -401,8 +401,8 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
             },
             {
                 id: 'download-skill',
-                name: '下载技能内容',
-                description: '获取 SKILL.md 的完整内容',
+                name: 'Download skill content',
+                description: 'Get the full content of SKILL.md',
                 type: 'llm',
                 prompt: [
                     '根据上一步的结果判断：',
@@ -424,8 +424,8 @@ export const PRESET_WORKFLOWS: WorkflowTemplate[] = [
             },
             {
                 id: 'convert-to-workflow',
-                name: '转化为工作流并保存',
-                description: '将 SKILL.md 内容转化为 OpenFlux WorkflowTemplate 并通过 workflow.save 保存',
+                name: 'Convert to workflow and save',
+                description: 'Convert SKILL.md content to OpenFlux WorkflowTemplate and save via workflow.save',
                 type: 'llm',
                 prompt: [
                     '将获取或自创的技能内容转化为 OpenFlux 工作流模板并保存。',
@@ -478,12 +478,12 @@ export function getPresetWorkflow(id: string): WorkflowTemplate | undefined {
 export function getWorkflowSummary(): string {
     return PRESET_WORKFLOWS.map(w => {
         const params = w.parameters
-            .map(p => `${p.name}${p.required ? '(必填)' : '(可选)'}: ${p.description}`)
+            .map(p => `${p.name}${p.required ? '(required)' : '(optional)'}: ${p.description}`)
             .join(', ');
         let summary = `- **${w.id}**: ${w.name} — ${w.description}`;
-        if (w.intent) summary += `\n  意图: ${w.intent}`;
-        summary += `\n  参数: ${params}`;
-        if (w.triggers?.length) summary += `\n  关键词: ${w.triggers.join(', ')}`;
+        if (w.intent) summary += `\n  Intent: ${w.intent}`;
+        summary += `\n  Parameters: ${params}`;
+        if (w.triggers?.length) summary += `\n  Keywords: ${w.triggers.join(', ')}`;
         return summary;
     }).join('\n\n');
 }

@@ -52,7 +52,7 @@ export class CardUpgrader extends EventEmitter {
         const logId = this.createDistillationLog('full');
 
         try {
-            this.logger.info('🌙 开始蒸馏流程...');
+            this.logger.info('🌙 Starting distillation process...');
 
             const r1 = await this.sessionDensityMerge();
             const r2 = await this.semanticSimilarityMerge();
@@ -65,13 +65,13 @@ export class CardUpgrader extends EventEmitter {
             };
 
             this.completeDistillationLog(logId, r1 + r2 + r3, 'completed');
-            this.logger.info('🌙 蒸馏完成', result);
+            this.logger.info('🌙 Distillation completed', result);
             this.emit('distillationCompleted', result);
             return result;
 
         } catch (error) {
             this.completeDistillationLog(logId, 0, 'failed');
-            this.logger.error('蒸馏失败', { error: String(error) });
+            this.logger.error('Distillation failed', { error: String(error) });
             throw error;
         }
     }
@@ -139,10 +139,10 @@ export class CardUpgrader extends EventEmitter {
                 await this.indexCardVector(miniCard);
 
                 mergedCount++;
-                this.logger.info(`📦 会话密度合并: ${micros.length} Micro → 1 Mini (主题: ${topic.topic_id})`);
+                this.logger.info(`📦 Session density merge: ${micros.length} Micro → 1 Mini (topic: ${topic.topic_id})`);
 
             } catch (error) {
-                this.logger.error(`主题 ${topic.topic_id} 合并失败`, { error: String(error) });
+                this.logger.error(`Topic ${topic.topic_id} merge failed`, { error: String(error) });
             }
         }
 
@@ -247,10 +247,10 @@ export class CardUpgrader extends EventEmitter {
 
                 await this.indexCardVector(miniCard);
                 mergedCount++;
-                this.logger.info(`🔗 语义相似合并: ${cluster.length} Micro → 1 Mini`);
+                this.logger.info(`🔗 Semantic similarity merge: ${cluster.length} Micro → 1 Mini`);
 
             } catch (error) {
-                this.logger.error('语义合并失败', { error: String(error) });
+                this.logger.error('Semantic merge failed', { error: String(error) });
             }
         }
 
@@ -304,7 +304,7 @@ export class CardUpgrader extends EventEmitter {
                     summary: macroSummary,
                     span,
                     qualityScore: Math.min(100, avgQuality * 1.15),
-                    tags: [topicRow?.title || '未知主题'],
+                    tags: [topicRow?.title || 'Unknown topic'],
                 });
 
                 for (const mini of minis) {
@@ -313,10 +313,10 @@ export class CardUpgrader extends EventEmitter {
 
                 await this.indexCardVector(macroCard);
                 mergedCount++;
-                this.logger.info(`🏔️ 定时聚合: ${minis.length} Mini → 1 Macro (主题: ${topicRow?.title})`);
+                this.logger.info(`🏔️ Scheduled aggregation: ${minis.length} Mini → 1 Macro (topic: ${topicRow?.title})`);
 
             } catch (error) {
-                this.logger.error(`主题 ${topic.topic_id} 聚合失败`, { error: String(error) });
+                this.logger.error(`Topic ${topic.topic_id} aggregation failed`, { error: String(error) });
             }
         }
 
@@ -331,19 +331,19 @@ export class CardUpgrader extends EventEmitter {
      * LLM 合并多个摘要为更高层级的总结
      */
     private async llmMergeSummaries(summaries: string[], targetLayer: 'Mini' | 'Macro'): Promise<string | null> {
-        const layerDesc = targetLayer === 'Mini' ? '中期记忆摘要' : '长期记忆概要';
-        const prompt = `你是一个记忆蒸馏专家。将以下 ${summaries.length} 条记忆碎片合并为一条${layerDesc}。
+        const layerDesc = targetLayer === 'Mini' ? 'mid-term memory summary' : 'long-term memory overview';
+        const prompt = `You are a memory distillation expert. Merge the following ${summaries.length} memory fragments into one ${layerDesc}.
 
-要求:
-- 保留核心事实和关键细节
-- 去除重复信息
-- 用简洁自然的语言组织
-- ${targetLayer === 'Macro' ? '着重提炼用户的长期特征、偏好和重要决策' : '保持信息的具体性'}
+Requirements:
+- Preserve core facts and key details
+- Remove duplicate information
+- Organize in concise, natural language
+- ${targetLayer === 'Macro' ? 'Focus on extracting long-term user traits, preferences, and important decisions' : 'Maintain specificity of information'}
 
-记忆碎片:
+Memory fragments:
 ${summaries.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 
-直接输出合并后的摘要，不要额外说明:`;
+Output the merged summary directly, no extra explanation:`;
 
         try {
             const response = await this.chatLLM.chat([
@@ -353,7 +353,7 @@ ${summaries.map((s, i) => `${i + 1}. ${s}`).join('\n')}
             const text = typeof response === 'string' ? response : (response as any)?.content || '';
             return text.trim() || null;
         } catch (error) {
-            this.logger.error('LLM 合并摘要失败', { error: String(error) });
+            this.logger.error('LLM merge summary failed', { error: String(error) });
             return null;
         }
     }
@@ -409,7 +409,7 @@ ${summaries.map((s, i) => `${i + 1}. ${s}`).join('\n')}
                     .run(BigInt(rowid.rowid), new Float32Array(embedding));
             }
         } catch (error) {
-            this.logger.warn('卡片向量索引失败', { cardId: card.cardId, error: String(error) });
+            this.logger.warn('Card vector indexing failed', { cardId: card.cardId, error: String(error) });
         }
     }
 

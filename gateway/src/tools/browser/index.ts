@@ -27,7 +27,7 @@ async function getChromium() {
         try {
             playwrightCoreModule = await import('playwright-core');
         } catch (error: any) {
-            throw new Error(`playwright-core 加载失败: ${error.message}. 请运行: npm install playwright-core`);
+            throw new Error(`Failed to load playwright-core: ${error.message}. Please run: npm install playwright-core`);
         }
     }
     return playwrightCoreModule!.chromium;
@@ -112,7 +112,7 @@ async function findChromeDebugPort(): Promise<number> {
         const match = output.match(/--remote-debugging-port=(\d+)/);
         if (match) {
             const port = parseInt(match[1], 10);
-            console.log(`[browser] 检测到已有调试端口: ${port}`);
+            console.log(`[browser] Detected existing debug port: ${port}`);
             return port;
         }
     } catch {
@@ -148,15 +148,15 @@ async function launchChromeWithDebugPort(): Promise<boolean> {
     const existingPort = await findChromeDebugPort();
     if (existingPort > 0) {
         currentCdpUrl = `http://127.0.0.1:${existingPort}`;
-        console.log(`[browser] 复用已有 Chrome 调试端口: ${currentCdpUrl}`);
+        console.log(`[browser] Reusing existing Chrome debug port: ${currentCdpUrl}`);
         return true;
     }
 
     // 2. 检测 Chrome 是否在运行（但没有调试端口）
     const running = await isChromeRunning();
     if (running) {
-        console.warn('[browser] Chrome/Edge 正在运行但未开启调试端口，无法连接');
-        console.warn('[browser] 请关闭 Chrome 后重试，或手动以调试模式启动:');
+        console.warn('[browser] Chrome/Edge is running but debug port not enabled, cannot connect');
+        console.warn('[browser] Close Chrome and retry, or manually launch in debug mode:');
         console.warn('[browser]   chrome.exe --remote-debugging-port=9222');
         return false;
     }
@@ -181,12 +181,12 @@ async function launchChromeWithDebugPort(): Promise<boolean> {
     }
 
     if (!chromePath) {
-        console.error('[browser] 未找到 Chrome/Edge 浏览器');
+        console.error('[browser] Chrome/Edge browser not found');
         return false;
     }
 
     const isEdge = chromePath.toLowerCase().includes('edge');
-    console.log(`[browser] 正在启动 ${isEdge ? 'Edge' : 'Chrome'}: ${chromePath}`);
+    console.log(`[browser] Starting ${isEdge ? 'Edge' : 'Chrome'}: ${chromePath}`);
 
     // 使用用户默认配置目录，保留登录状态和 Cookie
     const localAppData = process.env.LOCALAPPDATA || '';
@@ -212,13 +212,13 @@ async function launchChromeWithDebugPort(): Promise<boolean> {
         });
 
         launchedProcess.on('error', (err: Error) => {
-            console.error('[browser] 启动浏览器失败:', err.message);
+            console.error('[browser] Failed to launch browser:', err.message);
             launchedProcess = null;
         });
 
         launchedProcess.unref();
     } catch (err) {
-        console.error('[browser] spawn 浏览器异常:', err);
+        console.error('[browser] Browser spawn error:', err);
         launchedProcess = null;
         return false;
     }
@@ -241,174 +241,174 @@ export function createBrowserTool(opts: BrowserToolOptions = {}): AnyTool {
 
     return {
         name: 'browser',
-        description: `浏览器自动化工具（连接用户已有浏览器）。
+        description: `Browser automation tool (connects to user's existing browser).
 
-## 交互策略（必须遵循）
-1. **优先：结构化元素操作** — navigate 后自动返回页面可交互元素（带 ref 标识符如 e1, e2），直接用 clickRef/typeRef/selectRef 操作
-2. **次选：snapshot 刷新元素列表** — 页面变化后用 snapshot 重新获取元素列表及 ref
-3. **再次：evaluate 脚本** — 当需要复杂 DOM 操作时使用页面脚本
-4. **最后兜底：screenshot 截图** — 仅当以上方法无法识别目标元素时，才截图分析
+## Interaction Strategy (must follow)
+1. **Preferred: Structured element operations** — After navigate, interactive elements with ref identifiers (e.g., e1, e2) are automatically returned. Use clickRef/typeRef/selectRef directly.
+2. **Alternative: snapshot to refresh element list** — After page changes, use snapshot to get updated element list and refs.
+3. **Fallback: evaluate script** — Use page scripts for complex DOM operations.
+4. **Last resort: screenshot** — Only take screenshots when the above methods cannot identify the target element.
 
-## 标准流程
-connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef 操作 → snapshot（页面变化后刷新）→ 继续操作
+## Standard Flow
+connect → navigate (auto-returns interactive elements with refs) → clickRef/typeRef operations → snapshot (refresh after page changes) → continue
 
-⚠️ **禁止**在有 ref 可用时使用 screenshot 截图交互，这会浪费时间和 token。
+⚠️ **Do NOT** use screenshot when refs are available. It wastes time and tokens.
 
-支持的动作: ${BROWSER_ACTIONS.join(', ')}`,
+Supported actions: ${BROWSER_ACTIONS.join(', ')}`,
         parameters: {
             action: {
                 type: 'string',
-                description: `操作类型: ${BROWSER_ACTIONS.join('/')}`,
+                description: `Action type: ${BROWSER_ACTIONS.join('/')}`,
                 required: true,
                 enum: [...BROWSER_ACTIONS],
             },
             url: {
                 type: 'string',
-                description: '目标 URL（navigate 动作需要）或 CDP URL（connect 动作可选，默认 http://127.0.0.1:9222）',
+                description: 'Target URL (required for navigate) or CDP URL (optional for connect, default http://127.0.0.1:9222)',
             },
             selector: {
                 type: 'string',
-                description: '元素选择器（click/type/wait 动作需要）',
+                description: 'Element selector (required for click/type/wait actions)',
             },
             text: {
                 type: 'string',
-                description: '输入文本（type/typeRef 动作需要）',
+                description: 'Input text (required for type/typeRef actions)',
             },
             script: {
                 type: 'string',
-                description: 'JavaScript 代码（evaluate 动作需要）',
+                description: 'JavaScript code (required for evaluate action)',
             },
             path: {
                 type: 'string',
-                description: '截图保存路径（screenshot 动作可选）',
+                description: 'Screenshot save path (optional for screenshot action)',
             },
             timeout: {
                 type: 'number',
-                description: '超时时间（毫秒）',
+                description: 'Timeout in milliseconds',
             },
             fullPage: {
                 type: 'boolean',
-                description: '是否全页面截图',
+                description: 'Whether to take a full-page screenshot',
                 default: false,
             },
             targetId: {
                 type: 'string',
-                description: '标签页 ID（可选，用于操作特定标签页）',
+                description: 'Tab ID (optional, for operating on a specific tab)',
             },
             // OpenClaw 增强参数
             ref: {
                 type: 'string',
-                description: '元素 ref 标识符（如 e1, e2），来自 snapshot 动作返回。用于 clickRef/typeRef/hoverRef/selectRef/scrollRef/screenshot',
+                description: 'Element ref identifier (e.g., e1, e2) from snapshot action. Used for clickRef/typeRef/hoverRef/selectRef/scrollRef/screenshot',
             },
             interactive: {
                 type: 'boolean',
-                description: 'snapshot 动作：是否只返回可交互元素（推荐用于操作场景，减少输出量）',
+                description: 'snapshot action: Whether to return only interactive elements (recommended for operation scenarios, reduces output)',
                 default: false,
             },
             refsMode: {
                 type: 'string',
-                description: 'snapshot 动作：ref 生成模式。role=基于 ariaSnapshot（默认，稳定）；aria=基于 _snapshotForAI（Playwright 原生 ref，跨调用更稳定）',
+                description: 'snapshot action: ref generation mode. role=based on ariaSnapshot (default, stable); aria=based on _snapshotForAI (Playwright native refs, more stable across calls)',
                 enum: ['role', 'aria'],
             },
             compact: {
                 type: 'boolean',
-                description: 'snapshot 动作：是否精简输出（移除无名结构元素和空分支，减少 token）',
+                description: 'snapshot action: Whether to compact output (removes unnamed structural elements and empty branches, reduces tokens)',
                 default: false,
             },
             maxDepth: {
                 type: 'number',
-                description: 'snapshot 动作：最大深度限制（0=仅根元素，默认不限）',
+                description: 'snapshot action: Maximum depth limit (0=root only, default unlimited)',
             },
             snapshotSelector: {
                 type: 'string',
-                description: 'snapshot 动作：CSS 选择器，限定快照范围到特定元素',
+                description: 'snapshot action: CSS selector to scope snapshot to a specific element',
             },
             frame: {
                 type: 'string',
-                description: 'snapshot 动作：iframe 选择器，对嵌入的 iframe 取快照',
+                description: 'snapshot action: iframe selector to snapshot an embedded iframe',
             },
             submit: {
                 type: 'boolean',
-                description: 'typeRef 动作：输入后是否按回车提交',
+                description: 'typeRef action: Whether to press Enter after typing to submit',
                 default: false,
             },
             slowly: {
                 type: 'boolean',
-                description: 'typeRef 动作：是否逐字慢速输入（模拟人类打字，每字约75ms延迟）',
+                description: 'typeRef action: Whether to type slowly character by character (simulates human typing, ~75ms delay per character)',
                 default: false,
             },
             doubleClick: {
                 type: 'boolean',
-                description: 'clickRef 动作：是否双击',
+                description: 'clickRef action: Whether to double-click',
                 default: false,
             },
             button: {
                 type: 'string',
-                description: 'clickRef 动作：鼠标按键 left/right/middle',
+                description: 'clickRef action: Mouse button left/right/middle',
             },
             modifiers: {
                 type: 'array',
-                description: 'clickRef 动作：修饰键数组，可选值: Control, Shift, Alt, Meta',
+                description: 'clickRef action: Modifier keys array, values: Control, Shift, Alt, Meta',
                 items: { type: 'string' },
             },
             key: {
                 type: 'string',
-                description: 'pressKey 动作：按键名称，如 Enter, Escape, Tab, ArrowDown, Control+c, Control+a 等',
+                description: 'pressKey action: Key name, e.g., Enter, Escape, Tab, ArrowDown, Control+c, Control+a',
             },
             startRef: {
                 type: 'string',
-                description: 'dragRef 动作：拖拽起始元素 ref',
+                description: 'dragRef action: Source element ref for drag',
             },
             endRef: {
                 type: 'string',
-                description: 'dragRef 动作：拖拽目标元素 ref',
+                description: 'dragRef action: Target element ref for drag',
             },
             values: {
                 type: 'array',
-                description: 'selectRef 动作：下拉选项值数组',
+                description: 'selectRef action: Dropdown option values array',
                 items: { type: 'string' },
             },
             fields: {
                 type: 'array',
-                description: 'fillForm 动作：表单字段数组，每项 {ref: "e1", type: "text|checkbox|radio", value: "..."}',
+                description: 'fillForm action: Form fields array, each item {ref: "e1", type: "text|checkbox|radio", value: "..."}',
                 items: { type: 'object' },
             },
             paths: {
                 type: 'array',
-                description: 'uploadFiles 动作：要上传的文件路径数组',
+                description: 'uploadFiles action: File paths array to upload',
                 items: { type: 'string' },
             },
             inputRef: {
                 type: 'string',
-                description: 'uploadFiles 动作：文件输入框的 ref（与 selector 二选一）',
+                description: 'uploadFiles action: File input ref (alternative to selector)',
             },
             element: {
                 type: 'string',
-                description: 'screenshot/uploadFiles 动作：CSS 选择器定位元素',
+                description: 'screenshot/uploadFiles action: CSS selector to locate element',
             },
             tabIndex: {
                 type: 'number',
-                description: 'tabSwitch/tabClose 动作：标签页索引（从 0 开始，来自 tabs 动作返回）',
+                description: 'tabSwitch/tabClose action: Tab index (0-based, from tabs action)',
             },
             dialogAction: {
                 type: 'string',
-                description: 'dialog 动作：弹窗处理方式 accept/dismiss/status',
+                description: 'dialog action: Dialog handling method accept/dismiss/status',
             },
             promptText: {
                 type: 'string',
-                description: 'dialog 动作：prompt 弹窗的输入文本',
+                description: 'dialog action: Input text for prompt dialogs',
             },
             filePath: {
                 type: 'string',
-                description: 'pdf 动作：PDF 保存路径',
+                description: 'pdf action: PDF save path',
             },
             format: {
                 type: 'string',
-                description: 'pdf 动作：纸张格式（A4/Letter/Legal，默认 A4）',
+                description: 'pdf action: Paper format (A4/Letter/Legal, default A4)',
             },
             consoleAction: {
                 type: 'string',
-                description: 'console 动作：status(获取日志)/clear(清空)',
+                description: 'console action: status (get logs) / clear (clear logs)',
             },
         },
 
@@ -431,13 +431,13 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                 // 连接到用户浏览器（自动启动 Chrome）
                 case 'connect': {
                     if (browserInstance) {
-                        return jsonResult({ message: '已连接到浏览器', connected: true, cdpUrl: currentCdpUrl });
+                        return jsonResult({ message: 'Already connected to browser', connected: true, cdpUrl: currentCdpUrl });
                     }
                     const targetCdpUrl = readStringParam(args, 'url') || currentCdpUrl;
 
                     // 尝试连接的辅助函数
                     const tryConnect = async () => {
-                        console.log(`[browser] 正在连接到 ${targetCdpUrl}...`);
+                        console.log(`[browser] Connecting to ${targetCdpUrl}...`);
                         browserInstance = await (await getChromium()).connectOverCDP(targetCdpUrl, {
                             timeout: 5000,
                         });
@@ -459,7 +459,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         }
 
                         const tabCount = contexts.flatMap((c: any) => c.pages()).length;
-                        console.log(`[browser] 已连接，共 ${tabCount} 个标签页`);
+                        console.log(`[browser] Connected, ${tabCount} tabs total`);
 
                         // 注册 dialog 事件监听器
                         if (pageInstance) {
@@ -470,7 +470,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                                     defaultValue: dialog.defaultValue?.() || undefined,
                                     dialog,
                                 };
-                                console.log(`[browser] 检测到弹窗: ${dialog.type()} - ${dialog.message()}`);
+                                console.log(`[browser] Dialog detected: ${dialog.type()} - ${dialog.message()}`);
                             });
 
                             // 注册 console 事件监听器
@@ -492,13 +492,13 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                     try {
                         const tabCount = await tryConnect();
                         return jsonResult({
-                            message: '已连接到浏览器',
+                            message: 'Connected to browser',
                             connected: true,
                             cdpUrl: targetCdpUrl,
                             tabCount,
                         });
                     } catch (firstError: any) {
-                        console.log('[browser] 首次连接失败，尝试自动启动 Chrome...');
+                        console.log('[browser] First connection failed, auto-launching Chrome...');
 
                         // 自动启动 Chrome
                         const launched = await launchChromeWithDebugPort();
@@ -506,28 +506,28 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                             const isRunning = await isChromeRunning();
                             if (isRunning) {
                                 return errorResult(
-                                    'Chrome 正在运行但未开启调试端口，无法接管控制。\n' +
-                                    '解决方法（二选一）：\n' +
-                                    '1. 关闭所有 Chrome 窗口后重试（Agent 会自动以调试模式启动，保留你的登录状态）\n' +
-                                    '2. 手动以调试模式启动 Chrome: chrome.exe --remote-debugging-port=9222'
+                                    'Chrome is running but debug port is not enabled, cannot take control.\n' +
+                                    'Solutions (choose one):\n' +
+                                    '1. Close all Chrome windows and retry (Agent will auto-launch in debug mode, preserving your login state)\n' +
+                                    '2. Manually launch Chrome in debug mode: chrome.exe --remote-debugging-port=9222'
                                 );
                             }
-                            return errorResult('未找到 Chrome 浏览器，请手动安装 Chrome');
+                            return errorResult('Chrome browser not found, please install Chrome manually');
                         }
 
                         // 再次尝试连接
                         try {
                             const tabCount = await tryConnect();
                             return jsonResult({
-                                message: '已自动启动 Chrome 并连接',
+                                message: 'Auto-launched Chrome and connected',
                                 connected: true,
                                 cdpUrl: targetCdpUrl,
                                 tabCount,
                                 autoLaunched: true,
                             });
                         } catch (secondError: any) {
-                            console.error('[browser] 二次连接失败:', secondError);
-                            return errorResult(`连接浏览器失败: ${secondError.message}`);
+                            console.error('[browser] Second connection failed:', secondError);
+                            return errorResult(`Failed to connect to browser: ${secondError.message}`);
                         }
                     }
                 }
@@ -535,18 +535,18 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                 // 断开连接（不关闭用户浏览器）
                 case 'disconnect': {
                     if (!browserInstance) {
-                        return jsonResult({ message: '未连接到浏览器', connected: false });
+                        return jsonResult({ message: 'Not connected to browser', connected: false });
                     }
                     // 只断开 CDP 连接，不调用 close() 避免关闭用户浏览器
                     browserInstance = null;
                     pageInstance = null;
-                    return jsonResult({ message: '已断开连接（浏览器保持运行）', connected: false });
+                    return jsonResult({ message: 'Disconnected (browser keeps running)', connected: false });
                 }
 
                 // 列出所有标签页
                 case 'tabs': {
                     if (!browserInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     try {
                         const contexts = browserInstance.contexts();
@@ -563,14 +563,14 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         }
                         return jsonResult({ tabs, count: tabs.length });
                     } catch (error: any) {
-                        return errorResult(`获取标签页失败: ${error.message}`);
+                        return errorResult(`Failed to get tabs: ${error.message}`);
                     }
                 }
 
                 // 打开新标签页
                 case 'tabOpen': {
                     if (!browserInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     try {
                         const url = readStringParam(args, 'url') || 'about:blank';
@@ -594,26 +594,26 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         const title = await newPage.title().catch(() => '');
                         return jsonResult({ opened: true, url, title });
                     } catch (error: any) {
-                        return errorResult(`打开标签页失败: ${error.message}`);
+                        return errorResult(`Failed to open tab: ${error.message}`);
                     }
                 }
 
                 // 切换标签页
                 case 'tabSwitch': {
                     if (!browserInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     try {
                         const tabIndex = readNumberParam(args, 'tabIndex');
                         if (tabIndex === undefined) {
-                            return errorResult('缺少 tabIndex 参数，请先使用 tabs 动作获取标签页列表');
+                            return errorResult('Missing tabIndex parameter, please use tabs action first to get the tab list');
                         }
                         const allPages: any[] = [];
                         for (const ctx of browserInstance.contexts()) {
                             allPages.push(...ctx.pages());
                         }
                         if (tabIndex < 0 || tabIndex >= allPages.length) {
-                            return errorResult(`标签页索引 ${tabIndex} 超出范围，当前共 ${allPages.length} 个标签页`);
+                            return errorResult(`Tab index ${tabIndex} out of range, total ${allPages.length} tabs`);
                         }
                         pageInstance = allPages[tabIndex];
                         await pageInstance.bringToFront();
@@ -630,14 +630,14 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         const url = pageInstance.url();
                         return jsonResult({ switched: true, tabIndex, title, url });
                     } catch (error: any) {
-                        return errorResult(`切换标签页失败: ${error.message}`);
+                        return errorResult(`Failed to switch tab: ${error.message}`);
                     }
                 }
 
                 // 关闭标签页
                 case 'tabClose': {
                     if (!browserInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     try {
                         const tabIndex = readNumberParam(args, 'tabIndex');
@@ -648,7 +648,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         let targetPage: any;
                         if (tabIndex !== undefined) {
                             if (tabIndex < 0 || tabIndex >= allPages.length) {
-                                return errorResult(`标签页索引 ${tabIndex} 超出范围`);
+                                return errorResult(`Tab index ${tabIndex} out of range`);
                             }
                             targetPage = allPages[tabIndex];
                         } else {
@@ -656,11 +656,11 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                             targetPage = pageInstance;
                         }
                         if (!targetPage) {
-                            return errorResult('无可关闭的标签页');
+                            return errorResult('No tab to close');
                         }
                         // 防止关闭最后一个标签页导致 Chrome 退出
                         if (allPages.length <= 1) {
-                            return errorResult('无法关闭最后一个标签页（会导致浏览器退出）。如需导航到其他页面，请使用 navigate 动作');
+                            return errorResult('Cannot close the last tab (it would cause the browser to exit). Use navigate action to go to another page.');
                         }
                         const closedUrl = targetPage.url();
                         await targetPage.close();
@@ -674,7 +674,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         }
                         return jsonResult({ closed: true, closedUrl, remaining: allPages.length - 1 });
                     } catch (error: any) {
-                        return errorResult(`关闭标签页失败: ${error.message}`);
+                        return errorResult(`Failed to close tab: ${error.message}`);
                     }
                 }
 
@@ -695,7 +695,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         }
                         case 'accept': {
                             if (!pendingDialog) {
-                                return errorResult('当前没有弹窗');
+                                return errorResult('No dialog currently');
                             }
                             const promptText = readStringParam(args, 'promptText');
                             if (promptText) {
@@ -709,7 +709,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         }
                         case 'dismiss': {
                             if (!pendingDialog) {
-                                return errorResult('当前没有弹窗');
+                                return errorResult('No dialog currently');
                             }
                             await pendingDialog.dialog.dismiss();
                             const info = { type: pendingDialog.type, message: pendingDialog.message };
@@ -717,7 +717,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                             return jsonResult({ dismissed: true, ...info });
                         }
                         default:
-                            return errorResult(`未知 dialog 操作: ${dialogAction}，支持: status/accept/dismiss`);
+                            return errorResult(`Unknown dialog action: ${dialogAction}, supported: status/accept/dismiss`);
                     }
                 }
 
@@ -726,7 +726,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                     if (!browserInstance) {
                         // 自动尝试连接
                         try {
-                            console.log(`[browser] 自动连接到 ${currentCdpUrl}...`);
+                            console.log(`[browser] Auto-connecting to ${currentCdpUrl}...`);
                             browserInstance = await (await getChromium()).connectOverCDP(currentCdpUrl, {
                                 timeout: actionTimeout,
                             });
@@ -738,11 +738,11 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                                 pageInstance = await context.newPage();
                             }
                         } catch (error: any) {
-                            return errorResult(`连接浏览器失败: ${error.message}。请确保 Chrome 以调试模式启动: chrome.exe --remote-debugging-port=9222`);
+                            return errorResult(`Failed to connect to browser: ${error.message}. Please make sure Chrome is launched in debug mode: chrome.exe --remote-debugging-port=9222`);
                         }
                     }
                     if (!pageInstance) {
-                        return errorResult('无可用页面');
+                        return errorResult('No available page');
                     }
                     const url = readStringParam(args, 'url', { required: true, label: 'url' });
                     try {
@@ -792,7 +792,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                                 options: { interactive: true, compact: true },
                             });
                         } catch (e: any) {
-                            console.warn('[browser] navigate 后自动 snapshot 失败:', e.message);
+                            console.warn('[browser] Auto snapshot after navigate failed:', e.message);
                         }
 
                         return jsonResult({
@@ -808,18 +808,18 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                             ...(snapshot ? {
                                 snapshot: snapshot.snapshot,
                                 interactiveElements: snapshot.stats,
-                                hint: '页面可交互元素已列出（带 ref 标识符如 e1, e2），请优先使用 clickRef/typeRef 操作，避免截图识别。',
+                                hint: 'Interactive elements are listed with ref identifiers (e.g., e1, e2). Prefer using clickRef/typeRef to operate, avoid screenshot.',
                             } : {}),
                         });
                     } catch (error: any) {
-                        return errorResult(`导航失败: ${error.message}`);
+                        return errorResult(`Navigation failed: ${error.message}`);
                     }
                 }
 
                 // 截图（增强：支持 ref/element 定位截取特定元素）
                 case 'screenshot': {
                     if (!pageInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     const path = readStringParam(args, 'path');
                     const fullPage = readBooleanParam(args, 'fullPage', false);
@@ -858,28 +858,28 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                             base64: path ? undefined : buffer.toString('base64'),
                         });
                     } catch (error: any) {
-                        return errorResult(`截图失败: ${error.message}`);
+                        return errorResult(`Screenshot failed: ${error.message}`);
                     }
                 }
 
                 // 点击元素
                 case 'click': {
                     if (!pageInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     const selector = readStringParam(args, 'selector', { required: true, label: 'selector' });
                     try {
                         await pageInstance.click(selector, { timeout: actionTimeout });
                         return jsonResult({ selector, clicked: true });
                     } catch (error: any) {
-                        return errorResult(`点击失败: ${error.message}。建议改用 snapshot 获取元素 ref，然后用 clickRef 操作。`);
+                        return errorResult(`Click failed: ${error.message}. Suggestion: use snapshot to get element refs, then use clickRef.`);
                     }
                 }
 
                 // 输入文本
                 case 'type': {
                     if (!pageInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     const selector = readStringParam(args, 'selector', { required: true, label: 'selector' });
                     const text = readStringParam(args, 'text', { required: true, label: 'text' });
@@ -887,14 +887,14 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         await pageInstance.fill(selector, text, { timeout: actionTimeout });
                         return jsonResult({ selector, text, typed: true });
                     } catch (error: any) {
-                        return errorResult(`输入失败: ${error.message}`);
+                        return errorResult(`Input failed: ${error.message}`);
                     }
                 }
 
                 // 执行 JavaScript
                 case 'evaluate': {
                     if (!pageInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     const script = readStringParam(args, 'script', { required: true, label: 'script' });
                     try {
@@ -906,14 +906,14 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         const result = await pageInstance.evaluate(wrappedScript);
                         return jsonResult({ result });
                     } catch (error: any) {
-                        return errorResult(`执行脚本失败: ${error.message}。提示：脚本应为表达式（如 document.title）或自执行函数，不要使用裸 return。`);
+                        return errorResult(`Script execution failed: ${error.message}. Tip: Script should be an expression (e.g., document.title) or IIFE, do not use bare return.`);
                     }
                 }
 
                 // 等待
                 case 'wait': {
                     if (!pageInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     const selector = readStringParam(args, 'selector');
                     const waitTime = readNumberParam(args, 'timeout', { integer: true }) || 1000;
@@ -926,14 +926,14 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                             return jsonResult({ waited: waitTime });
                         }
                     } catch (error: any) {
-                        return errorResult(`等待失败: ${error.message}`);
+                        return errorResult(`Wait failed: ${error.message}`);
                     }
                 }
 
                 // 获取页面内容
                 case 'content': {
                     if (!pageInstance) {
-                        return errorResult('未连接到浏览器，请先执行 connect 动作');
+                        return errorResult('Not connected to browser, please execute connect action first');
                     }
                     try {
                         const content = await pageInstance.content();
@@ -946,7 +946,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                             content: content.slice(0, 10000),
                         });
                     } catch (error: any) {
-                        return errorResult(`获取内容失败: ${error.message}`);
+                        return errorResult(`Failed to get content: ${error.message}`);
                     }
                 }
 
@@ -977,10 +977,10 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                             snapshot: result.snapshot,
                             stats: result.stats,
                             refsMode: refsMode || 'role',
-                            usage: '使用 ref（如 e1, e2）配合 clickRef/typeRef 动作操作元素',
+                            usage: 'Use ref (e.g., e1, e2) with clickRef/typeRef actions to operate elements',
                         });
                     } catch (error: any) {
-                        return errorResult(`获取快照失败: ${error.message}`);
+                        return errorResult(`Failed to get snapshot: ${error.message}`);
                     }
                 }
 
@@ -1001,7 +1001,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         });
                         return jsonResult({ ref, clicked: true, doubleClick, button, modifiers });
                     } catch (error: any) {
-                        return errorResult(`点击失败: ${error.message}`);
+                        return errorResult(`Click failed: ${error.message}`);
                     }
                 }
 
@@ -1022,7 +1022,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         });
                         return jsonResult({ ref, text, typed: true, submitted: submit, slowly });
                     } catch (error: any) {
-                        return errorResult(`输入失败: ${error.message}`);
+                        return errorResult(`Type failed: ${error.message}`);
                     }
                 }
 
@@ -1037,7 +1037,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         });
                         return jsonResult({ ref, hovered: true });
                     } catch (error: any) {
-                        return errorResult(`悬停失败: ${error.message}`);
+                        return errorResult(`Hover failed: ${error.message}`);
                     }
                 }
 
@@ -1054,7 +1054,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         });
                         return jsonResult({ startRef, endRef, dragged: true });
                     } catch (error: any) {
-                        return errorResult(`拖拽失败: ${error.message}`);
+                        return errorResult(`Drag failed: ${error.message}`);
                     }
                 }
 
@@ -1069,7 +1069,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         });
                         return jsonResult({ key, pressed: true });
                     } catch (error: any) {
-                        return errorResult(`按键失败: ${error.message}`);
+                        return errorResult(`Key press failed: ${error.message}`);
                     }
                 }
 
@@ -1086,7 +1086,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         });
                         return jsonResult({ ref, values, selected: true });
                     } catch (error: any) {
-                        return errorResult(`选择失败: ${error.message}`);
+                        return errorResult(`Select failed: ${error.message}`);
                     }
                 }
 
@@ -1094,7 +1094,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                 case 'fillForm': {
                     const rawFields = args.fields;
                     if (!Array.isArray(rawFields) || rawFields.length === 0) {
-                        return errorResult('fields 参数必填，格式: [{ref: "e1", type: "text", value: "..."}]');
+                        return errorResult('fields parameter is required, format: [{ref: "e1", type: "text", value: "..."}]');
                     }
                     const fields = rawFields.map((f: any) => ({
                         ref: String(f.ref ?? ''),
@@ -1109,7 +1109,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         });
                         return jsonResult({ fieldCount: fields.length, filled: true });
                     } catch (error: any) {
-                        return errorResult(`填表失败: ${error.message}`);
+                        return errorResult(`Form fill failed: ${error.message}`);
                     }
                 }
 
@@ -1124,7 +1124,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         });
                         return jsonResult({ ref, scrolled: true });
                     } catch (error: any) {
-                        return errorResult(`滚动失败: ${error.message}`);
+                        return errorResult(`Scroll failed: ${error.message}`);
                     }
                 }
 
@@ -1134,7 +1134,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                     const inputRef = readStringParam(args, 'inputRef') || readStringParam(args, 'ref');
                     const element = readStringParam(args, 'element') || readStringParam(args, 'selector');
                     if (!inputRef && !element) {
-                        return errorResult('uploadFiles 需要 inputRef 或 element/selector 参数定位文件输入框');
+                        return errorResult('uploadFiles requires inputRef or element/selector parameter to locate the file input');
                     }
                     try {
                         await BrowserModule.setInputFilesViaPlaywright({
@@ -1146,18 +1146,18 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         });
                         return jsonResult({ paths, uploaded: true, inputRef, element });
                     } catch (error: any) {
-                        return errorResult(`上传文件失败: ${error.message}`);
+                        return errorResult(`File upload failed: ${error.message}`);
                     }
                 }
 
                 // PDF 导出
                 case 'pdf': {
                     if (!pageInstance) {
-                        return errorResult('未连接浏览器，请先执行 connect');
+                        return errorResult('Not connected to browser, please execute connect first');
                     }
                     const filePath = readStringParam(args, 'filePath') || readStringParam(args, 'path');
                     if (!filePath) {
-                        return errorResult('缺少 filePath 参数（PDF 保存路径）');
+                        return errorResult('Missing filePath parameter (PDF save path)');
                     }
                     const format = readStringParam(args, 'format') || 'A4';
 
@@ -1191,7 +1191,7 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                             exported: true,
                         });
                     } catch (error: any) {
-                        return errorResult(`PDF 导出失败: ${error.message}`);
+                        return errorResult(`PDF export failed: ${error.message}`);
                     }
                 }
 
@@ -1217,15 +1217,15 @@ connect → navigate（自动返回可交互元素和 ref）→ clickRef/typeRef
                         case 'clear': {
                             const cleared = consoleBuffer.length;
                             consoleBuffer = [];
-                            return jsonResult({ cleared, message: '控制台日志已清空' });
+                            return jsonResult({ cleared, message: 'Console logs cleared' });
                         }
                         default:
-                            return errorResult(`未知 console 操作: ${consoleAct}，支持: status/clear`);
+                            return errorResult(`Unknown console action: ${consoleAct}, supported: status/clear`);
                     }
                 }
 
                 default:
-                    return errorResult(`未知动作: ${action}`);
+                    return errorResult(`Unknown action: ${action}`);
             }
         },
     };

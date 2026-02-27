@@ -334,6 +334,8 @@ export const OpenFluxConfigSchema = z.object({
     sandbox: SandboxConfigSchema.optional(),
     // 预置模型列表（UI 下拉菜单默认选项）
     presetModels: z.record(z.string(), z.array(PresetModelSchema)).optional(),
+    // LLM 输出语言（BCP 47 标签，如 zh-CN、en、ja 等）
+    language: z.string().default('zh-CN'),
 });
 
 export type OpenFluxConfig = z.infer<typeof OpenFluxConfigSchema>;

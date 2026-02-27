@@ -42,17 +42,17 @@ pub async fn get_gateway_config(
 
 /// 从 gateway-bundle.tar.gz 解压 gateway 到 app_data_dir
 fn extract_gateway_bundle(tar_gz_path: &Path, dest_dir: &Path) -> Result<(), String> {
-    eprintln!("[Gateway] 解压 gateway-bundle.tar.gz -> {:?}", dest_dir);
+    eprintln!("[Gateway] Extracting gateway-bundle.tar.gz -> {:?}", dest_dir);
 
     let file = std::fs::File::open(tar_gz_path)
-        .map_err(|e| format!("打开 gateway-bundle.tar.gz 失败: {}", e))?;
+        .map_err(|e| format!("Failed to open gateway-bundle.tar.gz: {}", e))?;
     let gz = flate2::read::GzDecoder::new(file);
     let mut archive = tar::Archive::new(gz);
 
     archive.unpack(dest_dir)
-        .map_err(|e| format!("解压 tar.gz 失败: {}", e))?;
+        .map_err(|e| format!("Failed to extract tar.gz: {}", e))?;
 
-    eprintln!("[Gateway] 解压完成");
+    eprintln!("[Gateway] Extraction complete");
     Ok(())
 }
 
@@ -65,15 +65,15 @@ fn setup_gateway_runtime(resource_dir: &Path, app_data_dir: &Path) -> Result<Pat
     if !gateway_script.exists() {
         let tar_path = resource_dir.join("gateway-bundle.tar.gz");
         if !tar_path.exists() {
-            return Err(format!("gateway-bundle.tar.gz 未找到: {:?}", tar_path));
+            return Err(format!("gateway-bundle.tar.gz not found: {:?}", tar_path));
         }
         // 清理旧的不完整目录
         if gateway_data.exists() {
             std::fs::remove_dir_all(&gateway_data)
-                .map_err(|e| format!("清理旧 gateway 目录失败: {}", e))?;
+                .map_err(|e| format!("Failed to clean old gateway dir: {}", e))?;
         }
         std::fs::create_dir_all(&gateway_data)
-            .map_err(|e| format!("创建 gateway 目录失败: {}", e))?;
+            .map_err(|e| format!("Failed to create gateway dir: {}", e))?;
         extract_gateway_bundle(&tar_path, &gateway_data)?;
     }
 
@@ -96,14 +96,14 @@ pub fn start_gateway_sidecar(app: &AppHandle) -> Result<(), String> {
     let mut sidecar = state.lock().map_err(|e| e.to_string())?;
 
     if sidecar.child.is_some() {
-        eprintln!("[Gateway] sidecar 已在运行");
+        eprintln!("[Gateway] sidecar already running");
         return Ok(());
     }
 
     let resource_path = app
         .path()
         .resource_dir()
-        .map_err(|e| format!("获取资源目录失败: {}", e))?;
+        .map_err(|e| format!("Failed to get resource dir: {}", e))?;
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let dev_gateway_root = manifest_dir.join("..").join("gateway");
@@ -149,9 +149,9 @@ pub fn start_gateway_sidecar(app: &AppHandle) -> Result<(), String> {
             if let Some(src) = candidates.iter().find(|p| p.exists()) {
                 std::fs::copy(src, &config_dest)
                     .map_err(|e| format!("复制初始配置文件失败: {}", e))?;
-                eprintln!("[Gateway] 已复制初始配置: {:?} -> {:?}", src, config_dest);
+                eprintln!("[Gateway] Copied initial config: {:?} -> {:?}", src, config_dest);
             } else {
-                eprintln!("[Gateway] 警告: openflux.example.yaml 未找到，搜索路径: {:?}", candidates);
+                eprintln!("[Gateway] Warning: openflux.example.yaml not found, search paths: {:?}", candidates);
             }
         }
 
@@ -212,11 +212,11 @@ pub fn start_gateway_sidecar(app: &AppHandle) -> Result<(), String> {
         .open(&log_path);
     let log_file = match log_file {
         Ok(f) => {
-            eprintln!("[Gateway] 日志文件: {:?}", log_path);
+            eprintln!("[Gateway] Log file: {:?}", log_path);
             Some(std::sync::Arc::new(std::sync::Mutex::new(f)))
         }
         Err(e) => {
-            eprintln!("[Gateway] 无法创建日志文件: {}", e);
+            eprintln!("[Gateway] Cannot create log file: {}", e);
             None
         }
     };
@@ -260,7 +260,7 @@ pub fn start_gateway_sidecar(app: &AppHandle) -> Result<(), String> {
     }
 
     sidecar.child = Some(child);
-    eprintln!("[Gateway] sidecar 启动成功");
+    eprintln!("[Gateway] sidecar started");
     Ok(())
 }
 
@@ -272,7 +272,7 @@ pub fn stop_gateway_sidecar(app: &AppHandle) -> Result<(), String> {
     if let Some(mut child) = sidecar.child.take() {
         child.kill().map_err(|e| format!("停止 Gateway 失败: {}", e))?;
         let _ = child.wait(); // 等待进程完全退出
-        eprintln!("[Gateway] sidecar 已停止");
+        eprintln!("[Gateway] sidecar stopped");
     }
 
     Ok(())

@@ -69,17 +69,17 @@ export function createSpawnTool(options: SpawnToolOptions = {}): Tool {
     const parameters: Record<string, ToolParameter> = {
         task: {
             type: 'string',
-            description: '要执行的任务描述',
+            description: 'Task description to execute',
             required: true,
         },
         tools: {
             type: 'array',
-            description: '允许SubAgent 使用的工具列表（可选，默认继承）',
+            description: 'Tool list allowed for SubAgent (optional, inherits by default)',
             required: false,
         },
         timeout: {
             type: 'number',
-            description: `超时秒数（默认 ${defaultTimeout}）`,
+            description: `Timeout in seconds (default ${defaultTimeout})`,
             required: false,
             default: defaultTimeout,
         },
@@ -87,7 +87,7 @@ export function createSpawnTool(options: SpawnToolOptions = {}): Tool {
 
     return {
         name: 'spawn',
-        description: '创建SubAgent 执行任务并等待完成。SubAgent 执行完毕后返回结果。用于需要独立执行的子任务。',
+        description: 'Create a SubAgent to execute a task and wait for completion. Returns results after SubAgent finishes. Used for subtasks that need independent execution.',
         parameters,
 
         async execute(args: Record<string, unknown>): Promise<ToolResult> {
@@ -102,12 +102,12 @@ export function createSpawnTool(options: SpawnToolOptions = {}): Tool {
                 ).length;
 
                 if (runningCount >= maxConcurrent) {
-                    return errorResult(`已达到最大并发SubAgent 数量 (${maxConcurrent})`);
+                    return errorResult(`Maximum concurrent SubAgent limit reached (${maxConcurrent})`);
                 }
 
                 const spawnId = `spawn-${crypto.randomUUID().slice(0, 8)}`;
 
-                log.info(`创建SubAgent: ${spawnId}`, { task: task.slice(0, 100) });
+                log.info(`Creating SubAgent: ${spawnId}`, { task: task.slice(0, 100) });
 
                 // 记录运行状态
                 const run: SubAgentRun = {
@@ -135,7 +135,7 @@ export function createSpawnTool(options: SpawnToolOptions = {}): Tool {
                             existing.endTime = Date.now();
                             existing.result = result;
                         }
-                        log.info(`SubAgent 完成: ${spawnId}`, { status: result.status });
+                        log.info(`SubAgent completed: ${spawnId}`, { status: result.status });
 
                         return jsonResult({
                             status: result.status,
@@ -155,7 +155,7 @@ export function createSpawnTool(options: SpawnToolOptions = {}): Tool {
                                 error: error instanceof Error ? error.message : String(error),
                             };
                         }
-                        log.error(`SubAgent 失败: ${spawnId}`, { error });
+                        log.error(`SubAgent failed: ${spawnId}`, { error });
                         return jsonResult({
                             status: 'failed',
                             id: spawnId,
@@ -167,7 +167,7 @@ export function createSpawnTool(options: SpawnToolOptions = {}): Tool {
                 return jsonResult({
                     status: 'spawned',
                     id: spawnId,
-                    message: `SubAgent 已创建，但未配置执行回调。`,
+                    message: `SubAgent created, but no execution callback configured.`,
                 });
             } catch (error) {
                 return errorResult(error instanceof Error ? error.message : String(error));

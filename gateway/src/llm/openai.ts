@@ -203,9 +203,17 @@ export class OpenAIProvider implements LLMProvider {
  * 安全解析 JSON 字符串，失败时返回空对象
  */
 function safeParseJson(str: string): Record<string, unknown> {
+    if (!str || str.trim() === '') {
+        console.warn('[OpenAIProvider] Empty tool arguments from LLM, raw:', JSON.stringify(str));
+        return { __parse_error: 'LLM returned empty tool arguments. Please retry the tool call with valid parameters.' };
+    }
     try {
-        return JSON.parse(str || '{}');
-    } catch {
-        return {};
+        return JSON.parse(str);
+    } catch (e) {
+        console.warn('[OpenAIProvider] Failed to parse tool arguments, raw:', str.slice(0, 200), e);
+        return {
+            __parse_error: `LLM output was truncated (JSON incomplete). The tool call arguments were cut off mid-stream. ` +
+                `Please retry with shorter content — for large file writes, split into multiple smaller writes.`
+        };
     }
 }

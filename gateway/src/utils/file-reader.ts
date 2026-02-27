@@ -165,7 +165,7 @@ export async function extractFileText(filePath: string, maxChars = 50000): Promi
         return extractText(filePath, maxChars);
 
     } catch (err: any) {
-        log.error(`提取文件内容失败: ${filePath}`, { error: err.message });
+        log.error(`Failed to extract file content: ${filePath}`, { error: err.message });
         return { type: getFileCategory(ext), text: '', error: `提取失败: ${err.message}` };
     }
 }
@@ -409,7 +409,7 @@ export async function buildEnrichedInput(
         ? block + '## 用户消息\n\n' + userInput
         : userInput;
 
-    log.info('附件预处理完成', {
+    log.info('Attachment preprocessing complete', {
         count: attachments.length,
         imageCount: images.length,
         textChars: text.length,

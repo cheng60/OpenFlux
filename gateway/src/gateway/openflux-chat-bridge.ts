@@ -102,7 +102,7 @@ export class OpenFluxChatBridge {
 
             if (!resp.ok) {
                 const errText = await resp.text();
-                log.error('登录失败', { status: resp.status, body: errText });
+                log.error('Login failed', { status: resp.status, body: errText });
                 return { success: false, message: `HTTP ${resp.status}: ${errText}` };
             }
 
@@ -114,11 +114,11 @@ export class OpenFluxChatBridge {
                 return { success: false, message: '响应中无 token' };
             }
 
-            log.info('OpenFlux 登录成功', { username });
+            log.info('OpenFlux login successful', { username });
             return { success: true };
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
-            log.error('OpenFlux 登录异常', { error: msg });
+            log.error('OpenFlux login error', { error: msg });
             return { success: false, message: msg };
         }
     }
@@ -130,12 +130,12 @@ export class OpenFluxChatBridge {
             try {
                 conn.ws.close();
             } catch { /* ignore */ }
-            log.info(`关闭聊天室连接: ${chatroomId}`);
+            log.info(`Closing chatroom connection: ${chatroomId}`);
         }
         this.connections.clear();
         this.token = null;
         this.username = null;
-        log.info('OpenFlux 已登出');
+        log.info('OpenFlux logged out');
     }
 
     /** 获取登录状态 */
@@ -148,7 +148,7 @@ export class OpenFluxChatBridge {
 
     /** 获取当前 token（内部使用） */
     private getAuthHeaders(): Record<string, string> {
-        if (!this.token) throw new Error('未登录 OpenFlux');
+        if (!this.token) throw new Error('Not logged in to OpenFlux');
         return { 'Authorization': `Bearer ${this.token}` };
     }
 
@@ -165,7 +165,7 @@ export class OpenFluxChatBridge {
         );
 
         if (!resp.ok) {
-            throw new Error(`获取 Agent 列表失败: HTTP ${resp.status}`);
+            throw new Error(`Failed to get Agent list: HTTP ${resp.status}`);
         }
 
         const result = await resp.json();
@@ -221,7 +221,7 @@ export class OpenFluxChatBridge {
         );
 
         if (!resp.ok) {
-            log.warn('获取聊天历史失败', { chatroomId, status: resp.status });
+            log.warn('Failed to get chat history', { chatroomId, status: resp.status });
             return [];
         }
 
@@ -250,7 +250,7 @@ export class OpenFluxChatBridge {
         message: string,
         onProgress: (event: OpenFluxChatProgressEvent) => void,
     ): Promise<string> {
-        if (!this.token) throw new Error('未登录 OpenFlux');
+        if (!this.token) throw new Error('Not logged in to OpenFlux');
 
         return new Promise<string>((resolve, reject) => {
             const request = { message, onProgress, resolve, reject };
@@ -261,7 +261,7 @@ export class OpenFluxChatBridge {
                 if (conn.busy) {
                     // 同聊天室排队
                     conn.queue.push(request);
-                    log.info(`聊天室 ${chatroomId} 繁忙，排队等待 (队列长度: ${conn.queue.length})`);
+                    log.info(`Chatroom ${chatroomId} busy, queued (queue length: ${conn.queue.length})`);
                 } else {
                     // 直接执行
                     this.executeChat(conn, request);
@@ -297,7 +297,7 @@ export class OpenFluxChatBridge {
         this.connections.set(chatroomId, conn);
 
         ws.on('open', () => {
-            log.info(`WebSocket 连接成功: 聊天室 ${chatroomId}`);
+            log.info(`WebSocket connected: chatroom ${chatroomId}`);
             // 进入聊天室
             ws.send(JSON.stringify(['ENTER', chatroomId]));
             // 设置桌面模式
@@ -311,7 +311,7 @@ export class OpenFluxChatBridge {
         });
 
         ws.on('error', (error) => {
-            log.error(`WebSocket 连接错误: 聊天室 ${chatroomId}`, { error });
+            log.error(`WebSocket connection error: chatroom ${chatroomId}`, { error });
             // reject 当前活跃请求
             if (conn.currentRequest) {
                 conn.currentRequest.reject(new Error(`WebSocket 连接失败: ${error.message}`));
@@ -323,7 +323,7 @@ export class OpenFluxChatBridge {
         });
 
         ws.on('close', () => {
-            log.info(`WebSocket 连接关闭: 聊天室 ${chatroomId}`);
+            log.info(`WebSocket connection closed: chatroom ${chatroomId}`);
             // reject 当前活跃请求（关键修复：之前只处理队列，漏掉了正在执行的请求）
             if (conn.currentRequest) {
                 conn.currentRequest.reject(new Error('WebSocket 连接已关闭'));
@@ -353,7 +353,7 @@ export class OpenFluxChatBridge {
         // 设置超时（5 分钟）
         chatTimeout = setTimeout(() => {
             cleanup();
-            reject(new Error('聊天超时（5 分钟）'));
+            reject(new Error('Chat timed out (5 minutes)'));
             this.processNextInQueue(conn);
         }, 5 * 60 * 1000);
 
@@ -378,11 +378,11 @@ export class OpenFluxChatBridge {
                     const instruction = JSON.parse(match[1]);
                     const cmd = instruction[0];
                     const cmdData = instruction.length > 1 ? instruction[1] : null;
-                    log.info(`WS 指令: ${cmd}`, { chatroomId: conn.chatroomId });
+                    log.info(`WS command: ${cmd}`, { chatroomId: conn.chatroomId });
 
                     this.handleInstruction(cmd, cmdData, onProgress, fullReply, () => {
                         // ENDCHAT 回调：聊天结束
-                        log.info('ENDCHAT 收到，resolve Promise', {
+                        log.info('ENDCHAT received, resolving Promise', {
                             chatroomId: conn.chatroomId,
                             replyLength: fullReply.join('').length,
                         });
@@ -397,7 +397,7 @@ export class OpenFluxChatBridge {
                         this.processNextInQueue(conn);
                     });
                 } catch (e) {
-                    log.warn('解析指令失败', { raw: raw.slice(0, 200) });
+                    log.warn('Failed to parse command', { raw: raw.slice(0, 200) });
                 }
             } else {
                 // 纯文本流 — AI 回复片段
@@ -409,7 +409,7 @@ export class OpenFluxChatBridge {
         conn.ws.on('message', messageHandler);
 
         // 发送消息
-        log.info(`发送消息到聊天室 ${conn.chatroomId}`, { message: message.slice(0, 100) });
+        log.info(`Sending message to chatroom ${conn.chatroomId}`, { message: message.slice(0, 100) });
         conn.ws.send(JSON.stringify(['INPUT', message]));
     }
 
@@ -473,7 +473,7 @@ export class OpenFluxChatBridge {
                 break;
 
             case 'ERROR':
-                log.error('OpenFlux 聊天错误', { data });
+                log.error('OpenFlux chat error', { data });
                 onError();
                 break;
 
@@ -482,7 +482,7 @@ export class OpenFluxChatBridge {
                 break;
 
             default:
-                log.warn(`未知 OpenFlux 指令: ${cmd}`, { data });
+                log.warn(`Unknown OpenFlux command: ${cmd}`, { data });
                 break;
         }
     }
@@ -493,7 +493,7 @@ export class OpenFluxChatBridge {
 
         if (conn.queue.length > 0) {
             const next = conn.queue.shift()!;
-            log.info(`处理队列中的下一个请求 (剩余: ${conn.queue.length})`);
+            log.info(`Processing next queued request (remaining: ${conn.queue.length})`);
             this.executeChat(conn, next);
         }
     }

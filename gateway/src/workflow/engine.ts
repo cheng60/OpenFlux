@@ -61,7 +61,7 @@ export class WorkflowEngine {
                 this.customTemplates.set(t.id, t);
             }
             if (templates.length > 0) {
-                log.info(`从存储加载了 ${templates.length} 个自定义工作流模板`);
+                log.info(`Loaded ${templates.length} custom workflow templates from store`);
             }
         }
     }
@@ -75,7 +75,7 @@ export class WorkflowEngine {
         if (this.store) {
             this.store.save(template);
         }
-        log.info(`注册自定义工作流: ${template.id} (${template.name})`);
+        log.info(`Custom workflow registered: ${template.id} (${template.name})`);
     }
 
     /**
@@ -87,7 +87,7 @@ export class WorkflowEngine {
             this.store.delete(id);
         }
         if (existed) {
-            log.info(`已删除自定义工作流: ${id}`);
+            log.info(`Custom workflow deleted: ${id}`);
         }
         return existed;
     }
@@ -146,7 +146,7 @@ export class WorkflowEngine {
             totalSteps: template.steps.length,
         });
 
-        log.info(`工作流启动: ${template.name} (${run.id})`, {
+        log.info(`Workflow started: ${template.name} (${run.id})`, {
             params: Object.keys(fullParams),
             steps: template.steps.length,
         });
@@ -169,7 +169,7 @@ export class WorkflowEngine {
                     stepIndex: i,
                     totalSteps: template.steps.length,
                 });
-                log.info(`步骤跳过(条件不满足): ${stepTemplate.name}`);
+                log.info(`Step skipped (condition not met): ${stepTemplate.name}`);
                 continue;
             }
 
@@ -190,7 +190,7 @@ export class WorkflowEngine {
                         error: run.error,
                     });
 
-                    log.error(`工作流失败: ${template.name}`, { step: stepTemplate.name, error: stepRun.error });
+                    log.error(`Workflow failed: ${template.name}`, { step: stepTemplate.name, error: stepRun.error });
                     return run;
                 }
                 // skip: 继续下一步
@@ -211,7 +211,7 @@ export class WorkflowEngine {
         const duration = run.completedAt - run.startedAt;
         const completed = run.steps.filter(s => s.status === 'completed').length;
         const skipped = run.steps.filter(s => s.status === 'skipped').length;
-        log.info(`工作流完成: ${template.name} (${duration}ms, ${completed}/${template.steps.length} 步完成, ${skipped} 步跳过)`);
+        log.info(`Workflow completed: ${template.name} (${duration}ms, ${completed}/${template.steps.length} steps done, ${skipped} skipped)`);
 
         return run;
     }
@@ -245,7 +245,7 @@ export class WorkflowEngine {
                 totalSteps: total,
             });
 
-            log.info(`步骤执行: ${stepTemplate.name} [${stepTemplate.type || 'tool'}]${attempt > 0 ? ` (重试 #${attempt})` : ''}`);
+            log.info(`Step executing: ${stepTemplate.name} [${stepTemplate.type || 'tool'}]${attempt > 0 ? ` (retry #${attempt})` : ''}`);
 
             try {
                 let stepResult: unknown;
@@ -254,20 +254,20 @@ export class WorkflowEngine {
                 if (stepTemplate.type === 'llm') {
                     // === LLM 智能步骤 ===
                     if (!this.llm) {
-                        throw new Error('工作流引擎未配置 LLM Provider，无法执行 llm 类型步骤');
+                        throw new Error('Workflow engine has no LLM Provider configured, cannot execute llm type step');
                     }
                     if (!stepTemplate.prompt) {
-                        throw new Error('llm 类型步骤缺少 prompt 字段');
+                        throw new Error('llm type step missing prompt field');
                     }
 
                     // 构建上下文并解析模板变量
                     const ctx = this.buildTemplateContext(run);
                     const resolvedPrompt = this.resolveValue(stepTemplate.prompt, ctx) as string;
 
-                    log.info(`LLM 步骤提示词: ${resolvedPrompt.slice(0, 200)}...`);
+                    log.info(`LLM step prompt: ${resolvedPrompt.slice(0, 200)}...`);
 
                     const llmResult = await this.llm.chat([
-                        { role: 'system', content: '你是一个数据处理助手。请根据用户的指示处理提供的数据，直接输出处理结果，不要添加多余的解释。' },
+                        { role: 'system', content: 'You are a data processing assistant. Process the provided data according to the user\'s instructions and output the result directly without adding unnecessary explanations.' },
                         { role: 'user', content: resolvedPrompt },
                     ]);
 
@@ -277,7 +277,7 @@ export class WorkflowEngine {
                 } else {
                     // === 工具调用步骤（默认） ===
                     if (!stepTemplate.tool) {
-                        throw new Error('tool 类型步骤缺少 tool 字段');
+                        throw new Error('tool type step missing tool field');
                     }
 
                     const resolvedArgs = this.resolveArgs(stepTemplate.args || {}, run);
@@ -287,7 +287,7 @@ export class WorkflowEngine {
 
                     if (!stepSuccess) {
                         stepRun.error = result.error || '工具执行返回失败';
-                        log.warn(`步骤失败: ${stepTemplate.name}`, { error: stepRun.error, attempt });
+                        log.warn(`Step failed: ${stepTemplate.name}`, { error: stepRun.error, attempt });
                         continue;
                     }
                 }
@@ -313,7 +313,7 @@ export class WorkflowEngine {
 
             } catch (error) {
                 stepRun.error = error instanceof Error ? error.message : String(error);
-                log.warn(`步骤异常: ${stepTemplate.name}`, { error: stepRun.error, attempt });
+                log.warn(`Step error: ${stepTemplate.name}`, { error: stepRun.error, attempt });
             }
         }
 
@@ -353,7 +353,7 @@ export class WorkflowEngine {
             .map(p => `${p.name}(${p.description})`);
 
         if (missing.length > 0) {
-            throw new Error(`缺少必填参数: ${missing.join(', ')}`);
+            throw new Error(`Missing required parameters: ${missing.join(', ')}`);
         }
     }
 

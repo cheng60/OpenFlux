@@ -7,6 +7,6 @@
 import { startStandaloneGateway } from './standalone.js';
 
 startStandaloneGateway().catch((error) => {
-    console.error('Gateway 启动失败:', error);
+    console.error('Gateway startup failed:', error);
     process.exit(1);
 });

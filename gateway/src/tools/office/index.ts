@@ -48,7 +48,7 @@ export function createOfficeTool(opts: OfficeToolOptions = {}): AnyTool {
             });
             if (!allowed) {
                 const resolvedHints = allowedWritePaths.map(p => resolvePath(p));
-                throw new Error(`写入路径不在允许范围内: ${filePath}\n允许的目录: ${resolvedHints.join(', ')}`);
+                throw new Error(`Write path is not in the allowed range: ${filePath}\nAllowed directories: ${resolvedHints.join(', ')}`);
             }
         }
     };
@@ -64,55 +64,55 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
         parameters: {
             action: {
                 type: 'string',
-                description: `操作类型: ${OFFICE_ACTIONS.join('/')}`,
+                description: `Action type: ${OFFICE_ACTIONS.join('/')}`,
                 required: true,
                 enum: [...OFFICE_ACTIONS],
             },
             subAction: {
                 type: 'string',
-                description: '子操作: read/write/create',
+                description: 'Sub-action: read/write/create',
                 required: true,
             },
             filePath: {
                 type: 'string',
-                description: '文件路径（必需）',
+                description: 'File path (required)',
                 required: true,
             },
             sheet: {
                 type: 'string',
-                description: 'Excel 工作表名称（默认第一个）',
+                description: 'Excel sheet name (default: first sheet)',
             },
             data: {
                 type: 'array',
-                description: 'Excel/CSV write: 二维数组数据 [[row1col1, row1col2], [row2col1, row2col2]]',
+                description: 'Excel/CSV write: 2D array data [[row1col1, row1col2], [row2col1, row2col2]]',
                 items: { type: 'array' },
             },
             startRow: {
                 type: 'number',
-                description: 'Excel write: 起始写入行号（默认 1）',
+                description: 'Excel write: Starting row number (default 1)',
             },
             maxRows: {
                 type: 'number',
-                description: 'Excel/CSV read: 最大读取行数（默认 100）',
+                description: 'Excel/CSV read: Maximum rows to read (default 100)',
             },
             // Word 参数
             title: {
                 type: 'string',
-                description: 'Word create: 文档标题',
+                description: 'Word create: Document title',
             },
             paragraphs: {
                 type: 'array',
-                description: 'Word create: 段落内容数组 [\"段落1\", \"段落2\"]',
+                description: 'Word create: Paragraph content array ["paragraph1", "paragraph2"]',
                 items: { type: 'string' },
             },
             // CSV 参数
             delimiter: {
                 type: 'string',
-                description: 'CSV 分隔符（默认逗号）',
+                description: 'CSV delimiter (default comma)',
             },
             encoding: {
                 type: 'string',
-                description: '文件编码（默认 utf-8）',
+                description: 'File encoding (default utf-8)',
             },
         },
 
@@ -122,7 +122,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
             const filePath = readStringParam(args, 'filePath');
 
             if (!filePath) {
-                return errorResult('缺少 filePath 参数');
+                return errorResult('Missing filePath parameter');
             }
             const fullPath = resolvePath(filePath);
             // 写入操作检查白名单
@@ -140,7 +140,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                     switch (subAction) {
                         case 'read': {
                             if (!fs.existsSync(fullPath)) {
-                                return errorResult(`文件不存在: ${fullPath}`);
+                                return errorResult(`File not found: ${fullPath}`);
                             }
                             const workbook = new ExcelJS.Workbook();
                             await workbook.xlsx.readFile(fullPath);
@@ -152,7 +152,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                                 : workbook.worksheets[0];
 
                             if (!worksheet) {
-                                return errorResult(`工作表不存在: ${sheetName || '(默认)'}`);
+                                return errorResult(`Sheet not found: ${sheetName || '(default)'}`);
                             }
 
                             const rows: unknown[][] = [];
@@ -178,7 +178,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                         case 'write': {
                             const data = args.data as unknown[][] | undefined;
                             if (!data || !Array.isArray(data)) {
-                                return errorResult('缺少 data 参数（二维数组）');
+                                return errorResult('Missing data parameter (2D array)');
                             }
 
                             const workbook = new ExcelJS.Workbook();
@@ -243,7 +243,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                         }
 
                         default:
-                            return errorResult(`未知 excel 子操作: ${subAction}，支持: read/write/create`);
+                            return errorResult(`Unknown excel sub-action: ${subAction}, supported: read/write/create`);
                     }
                 }
 
@@ -254,7 +254,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                     switch (subAction) {
                         case 'read': {
                             if (!fs.existsSync(fullPath)) {
-                                return errorResult(`文件不存在: ${fullPath}`);
+                                return errorResult(`File not found: ${fullPath}`);
                             }
                             const mammoth = await import('mammoth');
                             const buffer = fs.readFileSync(fullPath);
@@ -318,7 +318,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                         }
 
                         default:
-                            return errorResult(`未知 word 子操作: ${subAction}，支持: read/create`);
+                            return errorResult(`Unknown word sub-action: ${subAction}, supported: read/create`);
                     }
                 }
 
@@ -329,7 +329,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                     switch (subAction) {
                         case 'read': {
                             if (!fs.existsSync(fullPath)) {
-                                return errorResult(`文件不存在: ${fullPath}`);
+                                return errorResult(`File not found: ${fullPath}`);
                             }
                             // pdf-parse v2 导出 PDFParse 类
                             const pdfParseModule = (await import('pdf-parse')) as any;
@@ -362,7 +362,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                         }
 
                         default:
-                            return errorResult(`未知 pdf 子操作: ${subAction}，支持: read`);
+                            return errorResult(`Unknown pdf sub-action: ${subAction}, supported: read`);
                     }
                 }
 
@@ -376,7 +376,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                     switch (subAction) {
                         case 'read': {
                             if (!fs.existsSync(fullPath)) {
-                                return errorResult(`文件不存在: ${fullPath}`);
+                                return errorResult(`File not found: ${fullPath}`);
                             }
                             const content = fs.readFileSync(fullPath, encoding);
                             const maxRows = readNumberParam(args, 'maxRows') || 100;
@@ -395,7 +395,7 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                         case 'write': {
                             const data = args.data as unknown[][] | undefined;
                             if (!data || !Array.isArray(data)) {
-                                return errorResult('缺少 data 参数（二维数组）');
+                                return errorResult('Missing data parameter (2D array)');
                             }
 
                             const dir = path.dirname(fullPath);
@@ -424,12 +424,12 @@ csv 子操作: read(解析 CSV), write(写入 CSV)`,
                         }
 
                         default:
-                            return errorResult(`未知 csv 子操作: ${subAction}，支持: read/write`);
+                            return errorResult(`Unknown csv sub-action: ${subAction}, supported: read/write`);
                     }
                 }
 
                 default:
-                    return errorResult(`未知动作: ${action}`);
+                    return errorResult(`Unknown action: ${action}`);
             }
         },
     };
