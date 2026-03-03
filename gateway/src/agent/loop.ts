@@ -4,6 +4,7 @@
  */
 
 import type { LLMProvider, LLMMessage, LLMToolCall, LLMToolDefinition, LLMContentPart } from '../llm/provider';
+import { LLMError } from '../llm/llm-error';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ToolRegistry } from '../tools/registry';
@@ -21,6 +22,8 @@ const log = new Logger('AgentLoop');
 export interface AgentLoopConfig {
     /** LLM Provider */
     llm: LLMProvider;
+    /** 备用 LLM Provider（主 LLM 内容审核/限流/不可用时自动切换） */
+    fallbackLlm?: LLMProvider;
     /** 工具注册表 */
     tools: ToolRegistry;
     /** 记忆管理器 */
@@ -592,7 +595,26 @@ User input "Save my account info: email xxx password xxx" -> You call tool: memo
         log.info(`Agent Loop iteration ${iterations} `);
 
         // 调用 LLM（原生 Function Calling，工具定义通过 API 参数传递）
-        const response = await config.llm.chatWithTools(messages, toolDefinitions);
+        let response;
+        try {
+            response = await config.llm.chatWithTools(messages, toolDefinitions);
+        } catch (error: any) {
+            // LLM 错误 fallback 策略
+            if (error instanceof LLMError && error.retryable && config.fallbackLlm) {
+                const providerInfo = `${error.provider}/${config.llm.getConfig().model}`;
+                const fallbackInfo = `${config.fallbackLlm.getConfig().provider}/${config.fallbackLlm.getConfig().model}`;
+                log.warn(`主 LLM (${providerInfo}) ${error.category}, 切换到备用 LLM (${fallbackInfo})`);
+                config.onToolStart?.(`ℹ️ 主模型审核拒绝，已自动切换备用模型`, [], undefined);
+                try {
+                    response = await config.fallbackLlm.chatWithTools(messages, toolDefinitions);
+                } catch (fallbackError: any) {
+                    log.error(`备用 LLM 也失败`, { error: fallbackError.message });
+                    throw fallbackError;
+                }
+            } else {
+                throw error;
+            }
+        }
         config.onIteration?.(iterations, response.content);
 
         // 处理思考内容（部分模型仍使用 <think> 标签）

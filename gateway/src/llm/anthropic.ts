@@ -11,6 +11,7 @@ import {
     LLMToolDefinition,
     ChatWithToolsResponse,
 } from './provider';
+import { classifyAnthropicError } from './llm-error';
 
 export class AnthropicProvider implements LLMProvider {
     private client: Anthropic;
@@ -123,15 +124,19 @@ export class AnthropicProvider implements LLMProvider {
                 content: m.content,
             }));
 
-        const response = await this.client.messages.create({
-            model: this.config.model,
-            max_tokens: this.config.maxTokens || 4096,
-            system: this.getSystemContent(messages),
-            messages: chatMessages,
-        });
+        try {
+            const response = await this.client.messages.create({
+                model: this.config.model,
+                max_tokens: this.config.maxTokens || 4096,
+                system: this.getSystemContent(messages),
+                messages: chatMessages,
+            });
 
-        const textBlock = response.content.find(c => c.type === 'text');
-        return textBlock?.text || '';
+            const textBlock = response.content.find(c => c.type === 'text');
+            return textBlock?.text || '';
+        } catch (error: any) {
+            throw classifyAnthropicError(error, this.config.provider);
+        }
     }
 
     async chatWithTools(
@@ -163,25 +168,29 @@ export class AnthropicProvider implements LLMProvider {
             requestParams.tools = anthropicTools;
         }
 
-        const response = await this.client.messages.create(requestParams);
+        try {
+            const response = await this.client.messages.create(requestParams);
 
-        // 解析响应 content blocks
-        let content = '';
-        const toolCalls: LLMToolCall[] = [];
+            // 解析响应 content blocks
+            let content = '';
+            const toolCalls: LLMToolCall[] = [];
 
-        for (const block of response.content) {
-            if (block.type === 'text') {
-                content += block.text;
-            } else if (block.type === 'tool_use') {
-                toolCalls.push({
-                    id: block.id,
-                    name: block.name,
-                    arguments: (block.input || {}) as Record<string, unknown>,
-                });
+            for (const block of response.content) {
+                if (block.type === 'text') {
+                    content += block.text;
+                } else if (block.type === 'tool_use') {
+                    toolCalls.push({
+                        id: block.id,
+                        name: block.name,
+                        arguments: (block.input || {}) as Record<string, unknown>,
+                    });
+                }
             }
-        }
 
-        return { content, toolCalls };
+            return { content, toolCalls };
+        } catch (error: any) {
+            throw classifyAnthropicError(error, this.config.provider);
+        }
     }
 
     async chatStream(

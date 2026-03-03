@@ -11,6 +11,7 @@ import {
     LLMToolDefinition,
     ChatWithToolsResponse,
 } from './provider';
+import { classifyOpenAIError } from './llm-error';
 
 export class OpenAIProvider implements LLMProvider {
     private client: OpenAI;
@@ -111,8 +112,12 @@ export class OpenAIProvider implements LLMProvider {
         const filteredMessages = messages.filter(m => m.role !== 'tool');
         const params = this.buildBaseParams(filteredMessages);
 
-        const response = await this.client.chat.completions.create(params as any);
-        return response.choices[0]?.message?.content || '';
+        try {
+            const response = await this.client.chat.completions.create(params as any);
+            return response.choices[0]?.message?.content || '';
+        } catch (error: any) {
+            throw classifyOpenAIError(error, this.config.provider);
+        }
     }
 
     async chatWithTools(
@@ -133,24 +138,28 @@ export class OpenAIProvider implements LLMProvider {
             }));
         }
 
-        const response = await this.client.chat.completions.create(params as any);
-        const message = response.choices[0]?.message;
+        try {
+            const response = await this.client.chat.completions.create(params as any);
+            const message = response.choices[0]?.message;
 
-        // 解析工具调用
-        const toolCalls: LLMToolCall[] = (message?.tool_calls || []).map(tc => ({
-            id: tc.id,
-            name: tc.function.name,
-            arguments: safeParseJson(tc.function.arguments),
-        }));
+            // 解析工具调用
+            const toolCalls: LLMToolCall[] = (message?.tool_calls || []).map(tc => ({
+                id: tc.id,
+                name: tc.function.name,
+                arguments: safeParseJson(tc.function.arguments),
+            }));
 
-        // 捕获 reasoning_content（Kimi K2.5 thinking 模式）
-        const reasoningContent = (message as any)?.reasoning_content as string | undefined;
+            // 捕获 reasoning_content（Kimi K2.5 thinking 模式）
+            const reasoningContent = (message as any)?.reasoning_content as string | undefined;
 
-        return {
-            content: message?.content || '',
-            toolCalls,
-            reasoningContent,
-        };
+            return {
+                content: message?.content || '',
+                toolCalls,
+                reasoningContent,
+            };
+        } catch (error: any) {
+            throw classifyOpenAIError(error, this.config.provider);
+        }
     }
 
     async chatStream(
@@ -161,19 +170,23 @@ export class OpenAIProvider implements LLMProvider {
         const params = this.buildBaseParams(filteredMessages);
         (params as any).stream = true;
 
-        const stream = await this.client.chat.completions.create(params as any);
+        try {
+            const stream = await this.client.chat.completions.create(params as any);
 
-        let fullResponse = '';
+            let fullResponse = '';
 
-        for await (const chunk of stream as any) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-                onChunk(content);
-                fullResponse += content;
+            for await (const chunk of stream as any) {
+                const content = chunk.choices[0]?.delta?.content || '';
+                if (content) {
+                    onChunk(content);
+                    fullResponse += content;
+                }
             }
-        }
 
-        return fullResponse;
+            return fullResponse;
+        } catch (error: any) {
+            throw classifyOpenAIError(error, this.config.provider);
+        }
     }
 
     getConfig(): LLMConfig {

@@ -352,6 +352,25 @@ export async function createStandaloneGateway() {
         log.warn(`LLM initialization skipped (API Key not configured), waiting for setup: ${err}`);
     }
 
+    // 3.1 初始化 Fallback LLM（备用模型，主 LLM 内容审核/限流/不可用时自动切换）
+    let fallbackLlm: any = null;
+    if (config.llm.fallback) {
+        try {
+            const fbConfig = config.llm.fallback;
+            fallbackLlm = createLLMProvider({
+                provider: fbConfig.provider,
+                model: fbConfig.model,
+                apiKey: fbConfig.apiKey || '',
+                baseUrl: fbConfig.baseUrl,
+                temperature: fbConfig.temperature,
+                maxTokens: fbConfig.maxTokens || llmConfig.maxTokens,
+            });
+            log.info(`Fallback LLM Provider: ${fbConfig.provider}/${fbConfig.model}`);
+        } catch (err) {
+            log.warn(`Fallback LLM initialization failed: ${err}`);
+        }
+    }
+
     // 3. 初始化工具注册表 + 工作流引擎
     const tools = new ToolRegistry();
     const { WorkflowStore } = await import('../workflow/workflow-store');
@@ -643,7 +662,7 @@ export async function createStandaloneGateway() {
     });
 
     // 7. 保留 agentRunner 给定时任务等内部场景使用（let 以支持热更新重建）
-    let agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
+    let agentRunner = createAgentLoopRunner({ llm, fallbackLlm, tools, language: config.language });
 
     // 8. 初始化 OpenFlux 云端聊天桥接器
     const openfluxBridge = new OpenFluxChatBridge({
@@ -995,7 +1014,7 @@ export async function createStandaloneGateway() {
                     baseUrl: managedLlmConfig.baseUrl,
                 });
                 agentManager.updateLLM(llm);
-                agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
+                agentRunner = createAgentLoopRunner({ llm, fallbackLlm, tools, language: config.language });
                 log.info('Hosted LLM config auto hot-updated', { provider: managedLlmConfig.provider, model: managedLlmConfig.model });
             }
 
@@ -1519,7 +1538,7 @@ export async function createStandaloneGateway() {
                         const bcp47 = langMap[lang] || lang;
                         config.language = bcp47;
                         // Rebuild agentRunner with new language
-                        agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
+                        agentRunner = createAgentLoopRunner({ llm, fallbackLlm, tools, language: config.language });
                         // Persist language to server-config.json
                         saveServerConfig(workspace, config);
                         log.info('Language updated', { language: bcp47 });
@@ -1551,7 +1570,7 @@ export async function createStandaloneGateway() {
                             baseUrl: managedLlmConfig.baseUrl,
                         });
                         agentManager.updateLLM(llm);
-                        agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
+                        agentRunner = createAgentLoopRunner({ llm, fallbackLlm, tools, language: config.language });
                         log.info('Switched to hosted LLM config', { provider: managedLlmConfig.provider });
                     } else {
                         llmSource = 'local';
@@ -1581,7 +1600,7 @@ export async function createStandaloneGateway() {
                             maxTokens: localCfg.maxTokens,
                         });
                         agentManager.updateLLM(llm);
-                        agentRunner = createAgentLoopRunner({ llm, tools, language: config.language });
+                        agentRunner = createAgentLoopRunner({ llm, fallbackLlm, tools, language: config.language });
                         log.info('Switched to local LLM config');
                     }
                     send(client, { type: 'config.llm-source', id: message.id, payload: { source: llmSource } });
@@ -2720,7 +2739,7 @@ export async function createStandaloneGateway() {
                     maxTokens: config.llm.execution.maxTokens,
                 });
                 agentManager.updateLLM(newOrchLLM, newExecLLM);
-                agentRunner = createAgentLoopRunner({ llm: newOrchLLM, tools, language: config.language });
+                agentRunner = createAgentLoopRunner({ llm: newOrchLLM, fallbackLlm, tools, language: config.language });
                 log.info('First-time setup complete, LLM Provider created');
             } catch (llmErr) {
                 log.warn('LLM recreation failed, may need restart', { error: String(llmErr) });
@@ -3016,7 +3035,7 @@ export async function createStandaloneGateway() {
                     });
                     agentManager.updateLLM(newOrchLLM, newExecLLM);
                     // 同步重建定时任务使用的 agentRunner
-                    agentRunner = createAgentLoopRunner({ llm: newOrchLLM, tools, language: config.language });
+                    agentRunner = createAgentLoopRunner({ llm: newOrchLLM, fallbackLlm, tools, language: config.language });
                     log.info('LLM Provider hot-updated (including scheduler runner)', {
                         orchestration: `${config.llm.orchestration.provider}/${config.llm.orchestration.model}`,
                         execution: `${config.llm.execution.provider}/${config.llm.execution.model}`,
@@ -3257,6 +3276,23 @@ export async function createStandaloneGateway() {
 export async function startStandaloneGateway(): Promise<void> {
     const gateway = await createStandaloneGateway();
     await gateway.start();
+
+    // 全局未捕获 Promise rejection 保护（防止 Playwright 内部竞态导致进程崩溃）
+    process.on('unhandledRejection', (reason: any) => {
+        // Playwright ProtocolError（如 dialog 竞态）：仅记录警告，不崩溃
+        if (reason?.constructor?.name === 'ProtocolError' ||
+            (reason?.message && reason.message.includes('Protocol error'))) {
+            log.warn('Playwright ProtocolError suppressed (non-fatal)', {
+                message: reason.message || String(reason)
+            });
+            return;
+        }
+        // 其他未捕获 rejection：记录错误但不崩溃
+        log.error('Unhandled promise rejection', {
+            error: reason?.message || String(reason),
+            stack: reason?.stack,
+        });
+    });
 
     // 优雅退出
     process.on('SIGINT', async () => {
