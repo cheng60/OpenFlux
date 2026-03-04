@@ -56,18 +56,36 @@ fn extract_gateway_bundle(tar_gz_path: &Path, dest_dir: &Path) -> Result<(), Str
     Ok(())
 }
 
-/// 初始化 gateway 运行时（prod 模式：首次运行解压 tar）
+/// 初始化 gateway 运行时（prod 模式：首次运行或版本升级时解压 tar）
 fn setup_gateway_runtime(resource_dir: &Path, app_data_dir: &Path) -> Result<PathBuf, String> {
     let gateway_data = app_data_dir.join("gateway");
     let gateway_script = gateway_data.join("src").join("gateway").join("start.ts");
+    let version_file = gateway_data.join(".version");
+    let app_version = env!("CARGO_PKG_VERSION");
 
-    // 如果 gateway 目录不存在或启动脚本不存在，需要解压
-    if !gateway_script.exists() {
+    // 判断是否需要解压：首次运行 或 版本升级
+    let need_extract = if !gateway_script.exists() {
+        eprintln!("[Gateway] Gateway script not found, need extraction");
+        true
+    } else if let Ok(cached_version) = std::fs::read_to_string(&version_file) {
+        if cached_version.trim() != app_version {
+            eprintln!("[Gateway] Version mismatch: cached={}, app={}, re-extracting", cached_version.trim(), app_version);
+            true
+        } else {
+            false
+        }
+    } else {
+        // .version 文件不存在（旧版安装），需要重新解压
+        eprintln!("[Gateway] No version marker found, re-extracting");
+        true
+    };
+
+    if need_extract {
         let tar_path = resource_dir.join("gateway-bundle.tar.gz");
         if !tar_path.exists() {
             return Err(format!("gateway-bundle.tar.gz not found: {:?}", tar_path));
         }
-        // 清理旧的不完整目录
+        // 清理旧目录
         if gateway_data.exists() {
             std::fs::remove_dir_all(&gateway_data)
                 .map_err(|e| format!("Failed to clean old gateway dir: {}", e))?;
@@ -75,6 +93,8 @@ fn setup_gateway_runtime(resource_dir: &Path, app_data_dir: &Path) -> Result<Pat
         std::fs::create_dir_all(&gateway_data)
             .map_err(|e| format!("Failed to create gateway dir: {}", e))?;
         extract_gateway_bundle(&tar_path, &gateway_data)?;
+        // 写入版本标记
+        let _ = std::fs::write(&version_file, app_version);
     }
 
     Ok(gateway_data)
