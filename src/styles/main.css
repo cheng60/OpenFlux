@@ -658,14 +658,19 @@ body {
 }
 
 /* macOS 平台适配 */
-/* macOS: 标题栏左侧预留空间给原生红绿灯（当使用 titleBarStyle overlay 时） */
+/* macOS: 标题栏左侧预留空间给原生红绿灯（titleBarStyle: overlay） */
 body.platform-macos .title-bar-left {
   padding-left: 70px;
 }
 
-/* macOS: 隐藏自定义窗口控制按钮（当使用原生窗口装饰时） */
-body.platform-macos.native-decorations .window-controls {
+/* macOS: 隐藏自定义窗口控制按钮（使用原生红绿灯） */
+body.platform-macos .window-controls {
   display: none;
+}
+
+/* macOS: 标题栏右侧补充 padding（移除窗口按钮后的空间平衡） */
+body.platform-macos .title-bar {
+  padding-right: var(--spacing-md);
 }
 
 /* ========== 三栏主布局 ========== */

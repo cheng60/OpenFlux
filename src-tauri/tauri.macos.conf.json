@@ -1,4 +1,13 @@
 {
+    "app": {
+        "windows": [
+            {
+                "decorations": true,
+                "titleBarStyle": "Overlay",
+                "hiddenTitle": true
+            }
+        ]
+    },
     "bundle": {
         "resources": [
             "node",
