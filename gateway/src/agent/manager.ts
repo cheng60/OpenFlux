@@ -557,7 +557,7 @@ export class AgentManager {
         this.contextCache.set(agentId, ctx);
 
         log.info(`Agent context created: ${agentId}`, {
-            model: llm.getConfig().model,
+            model: llm?.getConfig()?.model ?? 'unknown',
             tools: tools.getToolNames(),
         });
 
@@ -578,6 +578,9 @@ export class AgentManager {
                 temperature: agent.model.temperature,
                 maxTokens: agent.model.maxTokens,
             });
+        }
+        if (!this.options.defaultLLM) {
+            throw new Error('LLM not configured. Please set up your API Key in Settings > Server.');
         }
         return this.options.defaultLLM;
     }

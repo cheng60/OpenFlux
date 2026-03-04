@@ -601,8 +601,8 @@ User input "Save my account info: email xxx password xxx" -> You call tool: memo
         } catch (error: any) {
             // LLM 错误 fallback 策略
             if (error instanceof LLMError && error.retryable && config.fallbackLlm) {
-                const providerInfo = `${error.provider}/${config.llm.getConfig().model}`;
-                const fallbackInfo = `${config.fallbackLlm.getConfig().provider}/${config.fallbackLlm.getConfig().model}`;
+                const providerInfo = `${error.provider}/${config.llm?.getConfig()?.model ?? 'unknown'}`;
+                const fallbackInfo = `${config.fallbackLlm!.getConfig().provider}/${config.fallbackLlm!.getConfig().model}`;
                 log.warn(`主 LLM (${providerInfo}) ${error.category}, 切换到备用 LLM (${fallbackInfo})`);
                 config.onToolStart?.(`ℹ️ 主模型审核拒绝，已自动切换备用模型`, [], undefined);
                 try {
