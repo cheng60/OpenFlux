@@ -46,12 +46,22 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                // 应用关闭时停止 Gateway sidecar
-                let app = window.app_handle();
-                if let Err(e) = commands::gateway::stop_gateway_sidecar(app) {
-                    eprintln!("[OpenFlux] Gateway sidecar stop failed: {}", e);
+            match event {
+                // macOS: 点击红灯按钮时隐藏窗口到托盘，而非退出应用
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    if cfg!(target_os = "macos") {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
                 }
+                // 应用关闭时停止 Gateway sidecar
+                tauri::WindowEvent::Destroyed => {
+                    let app = window.app_handle();
+                    if let Err(e) = commands::gateway::stop_gateway_sidecar(app) {
+                        eprintln!("[OpenFlux] Gateway sidecar stop failed: {}", e);
+                    }
+                }
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![

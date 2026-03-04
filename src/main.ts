@@ -23,6 +23,21 @@ initI18n(zhPack, enPack);
 const isMacOS = navigator.platform.toUpperCase().includes('MAC');
 if (isMacOS) {
     document.body.classList.add('platform-macos');
+
+    // macOS: titleBarStyle Overlay 下 data-tauri-drag-region 不可靠
+    // 使用 JS 监听 mousedown → startDragging() 作为可靠替代
+    import('@tauri-apps/api/webviewWindow').then(({ getCurrentWebviewWindow }) => {
+        const titleBar = document.querySelector('.title-bar') as HTMLElement;
+        if (titleBar) {
+            titleBar.addEventListener('mousedown', (e) => {
+                // 仅左键，且不在按钮/输入框等交互元素上
+                if (e.button !== 0) return;
+                const target = e.target as HTMLElement;
+                if (target.closest('button, input, select, a, [data-no-drag]')) return;
+                getCurrentWebviewWindow().startDragging();
+            });
+        }
+    });
 }
 
 interface MessageAttachment {
