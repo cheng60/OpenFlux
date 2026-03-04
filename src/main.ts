@@ -24,9 +24,10 @@ const isMacOS = navigator.platform.toUpperCase().includes('MAC');
 if (isMacOS) {
     document.body.classList.add('platform-macos');
 
-    // macOS: titleBarStyle Overlay 下 data-tauri-drag-region 不可靠
-    // 使用 JS 监听 mousedown → startDragging() 作为可靠替代
-    import('@tauri-apps/api/webviewWindow').then(({ getCurrentWebviewWindow }) => {
+    // macOS: titleBarStyle Overlay 下 -webkit-app-region: drag 不可靠
+    // 禁用 CSS drag（见 main.css），改用 JS startDragging()
+    import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+        const appWindow = getCurrentWindow();
         const titleBar = document.querySelector('.title-bar') as HTMLElement;
         if (titleBar) {
             titleBar.addEventListener('mousedown', (e) => {
@@ -34,7 +35,8 @@ if (isMacOS) {
                 if (e.button !== 0) return;
                 const target = e.target as HTMLElement;
                 if (target.closest('button, input, select, a, [data-no-drag]')) return;
-                getCurrentWebviewWindow().startDragging();
+                e.preventDefault();
+                appWindow.startDragging();
             });
         }
     });

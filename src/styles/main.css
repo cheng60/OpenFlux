@@ -671,6 +671,8 @@ body.platform-macos .window-controls {
 /* macOS: 标题栏右侧补充 padding（移除窗口按钮后的空间平衡） */
 body.platform-macos .title-bar {
   padding-right: var(--spacing-md);
+  /* macOS: 禁用 CSS drag region，改用 JS startDragging() 避免 WKWebView 拦截冲突 */
+  -webkit-app-region: no-drag;
 }
 
 /* ========== 三栏主布局 ========== */
